@@ -23,7 +23,7 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 | pub | `/crane_plus_gripper_controller/joint_trajectory` | JointTrajectory | 同上 |
 | pub | `/teleop/ee_state` | PoseStamped | 現在の手先目標（crane_plus_base 基準）。収録対象 |
 | pub | `/teleop/status` | std_msgs/String(JSON) | enabled, ik_ok, pitch_relaxed, joints, target, gripper |
-| srv | `/teleop/home` | std_srvs/Trigger | ホーム姿勢（`home_ee`）へ |
+| srv | `/teleop/home` | std_srvs/Trigger | ホーム姿勢（`home_ee`。pitch 緩和付きで解く）へ |
 | srv | `/teleop/enable` | std_srvs/SetBool | 方策実行中は false にして publish を止める。true 時は現在関節角から目標を再構成 |
 
 **IK 失敗時の挙動**: 作業空間クリップ → 要求 pitch で IK → 解けなければ pitch を `pitch_search_step` 刻みで要求値に近い順に探索（位置優先）→ それでも解なしなら直前の姿勢を維持し `ik_ok=false`。
@@ -50,3 +50,4 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - Gazebo 上で FK（`crane_plus_kinematics`）と TF（crane_plus_base→link3/link4）が 3 姿勢で一致
 - ブラウザから W キー 1 秒で x: 0.12→0.18、pitch 自動緩和、グリッパ閉を確認。Gazebo の関節角・TF も追従
 - 録画ボタンで ep0 を収録し `ros2 bag info` で全トピックを確認、破棄ボタンで退避
+- グリッパ閉指令は 0.30rad（4cm 物体で爪が接触する 0.19rad より約 1cm 押し込む）。根拠は task_env 設計書のグリッパ幾何

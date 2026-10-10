@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+  演習の CRANE+ V2 記述に、把持アシスト用の DetachableJoint を追加したラッパー。
+  Ignition Gazebo では指の摩擦だけでは物体が滑落するため、task_manager_node が
+  「グリッパが閉じて物体が爪の間にある」ときに attach、開いたら detach する（ADR 0006）。
+-->
+<robot name="crane_plus" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:arg name="grasp_object_model" default="target_cube" />
+
+  <xacro:include filename="$(find crane_plus_description)/urdf/crane_plus.urdf.xacro"/>
+
+  <gazebo>
+    <plugin filename="ignition-gazebo-detachable-joint-system"
+            name="ignition::gazebo::systems::DetachableJoint">
+      <parent_link>crane_plus_link4</parent_link>
+      <child_model>$(arg grasp_object_model)</child_model>
+      <child_link>link</child_link>
+      <attach_topic>/task/gz/attach</attach_topic>
+      <detach_topic>/task/gz/detach</detach_topic>
+      <output_topic>/task/gz/attach_state</output_topic>
+    </plugin>
+  </gazebo>
+</robot>

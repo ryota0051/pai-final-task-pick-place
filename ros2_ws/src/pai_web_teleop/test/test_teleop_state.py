@@ -7,7 +7,8 @@ from crane_plus_kinematics import Workspace, load_kinematics
 from crane_plus_kinematics import EndEffectorPose
 from pai_web_teleop.teleop_state import EETeleopState, gripper_to_angle
 
-KIN_CFG = Path(__file__).resolve().parents[2] / 'crane_plus_kinematics' / 'config' / 'kinematics.yaml'
+KIN_CFG = (Path(__file__).resolve().parents[2] / 'crane_plus_kinematics' / 'test' / 'fixtures'
+           / 'kinematics_test.yaml')
 
 
 @pytest.fixture

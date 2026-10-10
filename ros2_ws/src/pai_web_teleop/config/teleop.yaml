@@ -9,11 +9,11 @@ ee_teleop_node:
     gripper_topic: /crane_plus_gripper_controller/joint_trajectory
     gripper_joint_name: crane_plus_joint_hand
     gripper_open: -0.5236          # -30deg（演習と同じ）
-    gripper_close: 0.1745          # 10deg
+    gripper_close: 0.30            # 4cm 物体を約 1cm 押し込む角度（爪間隔 0.04 で接触 = 約 0.19rad）
     max_linear_speed: 0.08         # [m/s]
     max_pitch_speed: 1.0           # [rad/s]
     velocity_timeout: 0.15         # 速度指令が途絶えたら停止 [s]
-    home_ee: [0.12, 0.0, 0.06, 1.5708]   # ホーム手先姿勢 x, y, z, pitch（真下向き）
+    home_ee: [0.10, 0.0, 0.08, 1.5708]   # ホーム手先姿勢 x, y, z, pitch（真下向き）
     pitch_search_step: 0.05        # 要求 pitch で IK 不可のとき pitch を緩和して探索する刻み [rad]（0 で無効）
     pitch_range: [-0.5, 1.5708]
     start_enabled: true
