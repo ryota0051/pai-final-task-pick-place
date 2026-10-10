@@ -24,40 +24,48 @@
       <pose>0.29 0 0 0 0 1.5708</pose>
     </include>
 
-    <!-- 把持対象: 2.5cm 角キューブ。摩擦は把持安定性のため高めに設定 -->
+    <!-- 把持対象: 4cm 角キューブ（グリッパ閉時の爪間隔と固定爪の接触長から決定）。摩擦は把持安定性のため高めに設定 -->
     <model name="target_cube">
-      <pose>0.15 0.05 1.03 0 0 0</pose>
+      <pose>0.12 0.05 1.04 0 0 0</pose>
       <link name="link">
         <inertial>
-          <mass>0.01</mass>
+          <mass>0.03</mass>
           <inertia>
-            <ixx>1.0e-6</ixx><iyy>1.0e-6</iyy><izz>1.0e-6</izz>
+            <ixx>8.0e-6</ixx><iyy>8.0e-6</iyy><izz>8.0e-6</izz>
             <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
           </inertia>
         </inertial>
         <collision name="collision">
-          <geometry><box><size>0.025 0.025 0.025</size></box></geometry>
+          <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
           <surface>
             <friction><ode><mu>2.0</mu><mu2>2.0</mu2></ode></friction>
             <contact><ode><kp>1e5</kp><kd>10</kd><max_vel>0.1</max_vel><min_depth>0.001</min_depth></ode></contact>
           </surface>
         </collision>
         <visual name="visual">
-          <geometry><box><size>0.025 0.025 0.025</size></box></geometry>
+          <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
           <material>
             <ambient>0.9 0.1 0.1 1</ambient><diffuse>0.9 0.1 0.1 1</diffuse>
           </material>
         </visual>
       </link>
+      <!-- 物体の world 姿勢を /model/target_cube/odometry に publish（ros_gz_bridge で ROS へ） -->
+      <plugin filename="ignition-gazebo-odometry-publisher-system"
+              name="ignition::gazebo::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>target_cube</robot_base_frame>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <dimensions>3</dimensions>
+      </plugin>
     </model>
 
     <!-- 置き場所マーカー（衝突なしの薄い円盤） -->
     <model name="place_zone">
       <static>true</static>
-      <pose>0.12 -0.12 1.0155 0 0 0</pose>
+      <pose>0.10 -0.12 1.0155 0 0 0</pose>
       <link name="link">
         <visual name="visual">
-          <geometry><cylinder><radius>0.03</radius><length>0.001</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.035</radius><length>0.001</length></cylinder></geometry>
           <material>
             <ambient>0.1 0.6 0.9 0.6</ambient><diffuse>0.1 0.6 0.9 0.6</diffuse>
           </material>

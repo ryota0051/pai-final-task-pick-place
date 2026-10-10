@@ -9,28 +9,37 @@ task_manager_node:
       world_name: default
       object_model: target_cube
       place_model: place_zone
-      gz_pose_topic: /task/gz_dynamic_poses   # ros_gz_bridge で /world/<world>/dynamic_pose/info を中継
       service_timeout_ms: 2000
+
+    object_odom_topic: /task/object_odom   # 物体の OdometryPublisher を ros_gz_bridge で中継したトピック
 
     # world 座標系における crane_plus_base（spawn 時の -z 1.015 と一致させる）
     base_origin: [0.0, 0.0, 1.015]
     base_yaw: 0.0
 
     object:
-      size: 0.025                   # キューブ一辺 [m]
+      size: 0.04                    # キューブ一辺 [m]（world SDF と一致させる）
       spawn_z_margin: 0.005         # 置き直し時に浮かせる量 [m]
 
     # 物体スポーン範囲（crane_plus_base 基準）
     sampler:
-      x: [0.10, 0.20]
-      y: [-0.08, 0.12]
-      r: [0.10, 0.22]
+      x: [0.08, 0.16]
+      y: [-0.06, 0.12]
+      r: [0.09, 0.165]              # 真下向き把持で IK 可能な半径（z=0.02 で 0.164）
       min_dist_from_place: 0.08
       max_attempts: 1000
 
     place:
-      xy: [0.12, -0.12]
-      radius: 0.03
+      xy: [0.10, -0.12]
+      radius: 0.035
+
+    # 把持アシスト（Ignition では摩擦把持が滑落するため DetachableJoint で固定する。ADR 0006）
+    hand_joint_name: crane_plus_joint_hand
+    grasp_assist:
+      enabled: true
+      close_threshold: 0.12         # この角度以上閉じていて…
+      open_threshold: 0.0           # この角度以下に開いたら detach
+      attach_distance: 0.02         # 把持中心（FK）と物体中心の距離がこれ以下なら attach [m]
 
     success:
       z_tolerance: 0.01

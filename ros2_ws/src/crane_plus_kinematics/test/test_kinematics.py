@@ -10,7 +10,8 @@ from crane_plus_kinematics.kinematics import (
     load_kinematics,
 )
 
-CONFIG = Path(__file__).resolve().parents[1] / 'config' / 'kinematics.yaml'
+CONFIG = Path(__file__).resolve().parent / 'fixtures' / 'kinematics_test.yaml'
+REAL_CONFIG = Path(__file__).resolve().parents[1] / 'config' / 'kinematics.yaml'
 
 
 @pytest.fixture(scope='module')
@@ -23,6 +24,30 @@ def test_load_config_values(kin):
     assert kin.params.l3 == pytest.approx(0.0935)
     assert kin.params.shoulder_height == pytest.approx(0.0454 + 0.026)
     assert kin.limits['crane_plus_joint1'] == pytest.approx((-2.61799, 2.61799))
+
+
+def test_real_config_is_loadable_and_consistent(kin):
+    real = load_kinematics(REAL_CONFIG)
+    # リンク長・リミットは URDF 由来で固定、ツール長のみ調整対象
+    assert real.params.l2 == kin.params.l2 and real.params.l3 == kin.params.l3
+    assert real.limits == kin.limits
+    assert 0.05 < real.params.tool_length < 0.15
+    assert abs(real.params.tool_offset_y) < 0.04
+
+
+def test_fk_with_tool_offset_y():
+    import dataclasses
+    base = load_kinematics(CONFIG)
+    params = dataclasses.replace(base.params, tool_offset_y=0.02)
+    from crane_plus_kinematics.kinematics import ArmKinematics
+    k = ArmKinematics(params, base.limits)
+    p = k.forward([math.pi / 2, math.pi / 2, 0.0, 0.0])
+    # yaw 90deg でアーム平面の前方は +y、オフセット方向は -x
+    assert p.x == pytest.approx(-0.02)
+    sol = k.inverse(p)
+    assert sol is not None
+    got = k.forward(sol)
+    assert (got.x, got.y, got.z) == pytest.approx((p.x, p.y, p.z), abs=1e-6)
 
 
 def test_fk_all_zero_points_straight_up(kin):

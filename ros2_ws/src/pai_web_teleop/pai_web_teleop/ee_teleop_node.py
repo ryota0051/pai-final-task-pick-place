@@ -13,7 +13,7 @@ from std_msgs.msg import Float64, String
 from std_srvs.srv import SetBool, Trigger
 from trajectory_msgs.msg import JointTrajectory
 
-from crane_plus_kinematics import ARM_JOINT_NAMES, EndEffectorPose, Workspace, load_kinematics
+from crane_plus_kinematics import ARM_JOINT_NAMES, Workspace, load_kinematics
 from pai_web_teleop.ros_utils import make_trajectory, pitch_to_quaternion, quaternion_to_pitch
 from pai_web_teleop.teleop_state import EETeleopState, gripper_to_angle
 
@@ -33,7 +33,7 @@ class EETeleopNode(Node):
         self.max_lin = p('max_linear_speed', 0.08).value
         self.max_pitch = p('max_pitch_speed', 1.0).value
         self.vel_timeout = p('velocity_timeout', 0.3).value
-        home_ee = list(p('home_ee', [0.12, 0.0, 0.06, 1.5708]).value)
+        home_ee = list(p('home_ee', [0.10, 0.0, 0.08, 1.5708]).value)
         pitch_search_step = p('pitch_search_step', 0.05).value
         ws = Workspace(
             x=tuple(p('workspace.x', [0.0, 0.26]).value),
@@ -47,10 +47,13 @@ class EETeleopNode(Node):
         gripper_topic = p('gripper_topic', '/crane_plus_gripper_controller/joint_trajectory').value
 
         kin = load_kinematics(kin_cfg)
-        home_q = kin.inverse(EndEffectorPose(*home_ee))
-        if home_q is None:
+        # ホーム姿勢もテレオペと同じ pitch 緩和付きで解く（設定値が厳密に解けなくても起動できる）
+        self.state = EETeleopState(kin, ws, [0.0] * len(ARM_JOINT_NAMES), pitch_range,
+                                   pitch_search_step)
+        if not self.state.set_target(*home_ee):
             raise RuntimeError(f'home_ee {home_ee} has no IK solution')
-        self.state = EETeleopState(kin, ws, home_q, pitch_range, pitch_search_step)
+        self.state.home_joints = list(self.state.joints)
+        self.state.reset_home()
         self.gripper = 0.0
         self.velocity = (0.0, 0.0, 0.0, 0.0)
         self.last_vel_time = None
