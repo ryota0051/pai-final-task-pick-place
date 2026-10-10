@@ -31,7 +31,8 @@ class ObjectDetectorNode(Node):
         self.min_pixels = p('detection.min_pixels', 15).value
         self.plane_z = p('plane_z', 0.04).value
         self.output_z = p('output_z', 0.02).value
-        self.holder = EstimateHolder(hold_last=p('hold_last', True).value)
+        self.holder = EstimateHolder(hold_last=p('hold_last', True).value,
+                                     min_visible_ratio=p('min_visible_ratio', 0.85).value)
         self.episode = None
         self.detected = False
         self.pub = self.create_publisher(PoseStamped, output_topic, 10)
@@ -58,7 +59,7 @@ class ObjectDetectorNode(Node):
         if c is not None:
             x, y, _ = self.cam.pixel_to_plane(c[0], c[1], self.plane_z)
             detection = (x, y, self.output_z)
-        estimate = self.holder.update(detection, self.episode)
+        estimate = self.holder.update(detection, self.episode, pixels=int(mask.sum()))
         if estimate is not None:
             ps = PoseStamped()
             ps.header.stamp = msg.header.stamp
@@ -69,6 +70,7 @@ class ObjectDetectorNode(Node):
         self.status_pub.publish(String(data=json.dumps({
             'detected': self.detected, 'pixels': int(mask.sum()), 'episode': self.episode,
             'detected_in_episode': self.holder.detected_in_episode,
+            'partially_occluded': self.holder.partially_occluded,
             'estimate': None if estimate is None else [round(v, 4) for v in estimate]})))
 
 

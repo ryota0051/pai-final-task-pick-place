@@ -91,3 +91,19 @@ def test_holder_episode_none_keeps_state():
     h = EstimateHolder(hold_last=True)
     h.update((0.1, 0.0, 0.02), episode=None)
     assert h.update(None, episode=None) == (0.1, 0.0, 0.02)
+
+
+def test_holder_ignores_partially_occluded_detection():
+    # 見えている画素数がエピソード内最大の min_visible_ratio 未満なら部分遮蔽とみなして無視する
+    h = EstimateHolder(hold_last=True, min_visible_ratio=0.85)
+    assert h.update((0.145, 0.0, 0.02), episode=1, pixels=640) == (0.145, 0.0, 0.02)
+    assert h.update((0.150, 0.0, 0.02), episode=1, pixels=600) == (0.150, 0.0, 0.02)  # 94% → 採用
+    assert h.update((0.158, 0.0, 0.02), episode=1, pixels=400) == (0.150, 0.0, 0.02)  # 63% → 無視
+    assert h.partially_occluded
+
+
+def test_holder_visible_ratio_resets_per_episode():
+    h = EstimateHolder(hold_last=True, min_visible_ratio=0.85)
+    h.update((0.1, 0.0, 0.02), episode=1, pixels=700)
+    # 新エピソードでは最大画素数もリセット（物体位置によって見え方が変わるため）
+    assert h.update((0.2, 0.0, 0.02), episode=2, pixels=500) == (0.2, 0.0, 0.02)
