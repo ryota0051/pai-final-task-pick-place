@@ -16,5 +16,6 @@ testpaths = ["ros2_ws/src"]
 pythonpath = [
     "ros2_ws/src/crane_plus_kinematics",
     "ros2_ws/src/pai_task_env",
+    "ros2_ws/src/pai_web_teleop",
 ]
 addopts = "-q --import-mode=importlib"
