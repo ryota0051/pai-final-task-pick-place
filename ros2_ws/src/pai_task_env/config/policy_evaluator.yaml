@@ -3,6 +3,12 @@ policy_evaluator:
     trials: 20
     timeout: 30.0              # 1 試行の制限時間 [s]（デモは 8〜13 秒）
     settle_time: 2.0           # ホーム・リセット後の待ち [s]
+    # ホームへの移動完了待ち: 直近 window 秒の関節変動が tolerance 未満になるまで待つ（最大 timeout 秒）。
+    # 移動途中で方策を開始すると、正面付近の物体で把持位置が -y 側にずれて失敗する（2026-10-11 の分析）
+    settle:
+      window: 0.5              # [s]
+      tolerance: 0.002         # [rad]
+      timeout: 10.0            # [s]
     label: policy              # 出力ファイル名の接頭辞（baseline / objpos など）
     output_dir: ~/dataset/eval
     # カメラ推定（/task/object_pose_est）で評価する場合の遮蔽対策:
