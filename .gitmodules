@@ -1,0 +1,3 @@
+[submodule "external/pai_training"]
+	path = external/pai_training
+	url = https://github.com/ryota0051/pai_training.git
