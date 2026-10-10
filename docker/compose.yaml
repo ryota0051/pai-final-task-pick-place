@@ -1,0 +1,40 @@
+name: pai_final_task
+
+services:
+  pai_ros2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pai-final-task:humble
+    container_name: ${CONTAINER_NAME:-pai_final_task}
+    environment:
+      - RESOLUTION=${RESOLUTION:-1920x1080}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    ports:
+      - "${NOVNC_PORT:-6080}:80"
+      - "${ROSBRIDGE_PORT:-9090}:9090"
+      - "${RERUN_PORT:-9876}:9876"
+      - "${RERUN_WEB_PORT:-9877}:9877"
+      - "${WEB_UI_PORT:-8080}:8080"
+    shm_size: ${SHM_SIZE:-8gb}
+    privileged: true
+    gpus: all
+    volumes:
+      # 自作 ROS 2 パッケージ（ソースはホストと共有、ビルド成果物は named volume）
+      - ../ros2_ws/src:/home/ubuntu/final_task/ros2_ws/src
+      - ros2_build:/home/ubuntu/final_task/ros2_ws/build
+      - ros2_install:/home/ubuntu/final_task/ros2_ws/install
+      - ros2_log:/home/ubuntu/final_task/ros2_ws/log
+      # pai_training（fork）。pixi 環境は Windows bind mount だと遅いので named volume
+      - ../external/pai_training:/home/ubuntu/pai_training
+      - pixi_env:/home/ubuntu/pai_training/.pixi
+      # データ・チェックポイント（演習と同じパス）
+      - ${DATA_DIR:-../data}/dataset:/home/ubuntu/dataset
+      - ${DATA_DIR:-../data}/checkpoints:/home/ubuntu/checkpoints
+
+volumes:
+  ros2_build:
+  ros2_install:
+  ros2_log:
+  pixi_env:
