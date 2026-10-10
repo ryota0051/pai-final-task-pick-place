@@ -11,7 +11,7 @@
 | joint1_to_joint2 | 0.026 | joint1 → joint2（肩高さ = 0.0714） |
 | joint2_to_joint3 (L2) | 0.083 | link2 |
 | joint3_to_joint4 (L3) | 0.0935 | link3 |
-| tool_length (Lt) | 0.07 | joint4 → 把持中心（**Gazebo で要キャリブレーション**） |
+| tool_length (Lt) | 0.10 | joint4 → 把持中心（固定爪先端は約 0.12。**Gazebo で要キャリブレーション**） |
 | tool_offset_y | 0.0 | 把持中心のアーム平面垂直方向オフセット |
 
 関節リミットはサーボ原点 150° 基準で URDF の値を rad に換算して記載。
@@ -41,4 +41,10 @@ r = L2 sinφ2 + L3 sinφ3 + Lt sinφ4、h = z_sh + L2 cosφ2 + L3 cosφ3 + Lt co
 - 既知姿勢の FK、joint 回転方向、IK∘FK 往復（ランダム 2000 姿勢）、肘上解選択、到達不能、リミット判定、クリップ
 
 ## 未検証事項
-- Gazebo 上で `ros2 run tf2_ros tf2_echo crane_plus_base crane_plus_link4` と FK のリスト位置を突き合わせ、軸方向・リンク長を確認する（Phase 2 結合時）。
+- tool_length / tool_offset_y の把持中心キャリブレーション（Phase 3 の把持試験で確定）
+
+
+
+## 検証済み
+- Gazebo 上で `crane_plus_base→crane_plus_link3/link4` の TF と FK の肘・リスト位置が 3 姿勢で一致（2026-10-10）
+- `/joint_states` の並びは joint1, joint2, **joint4, joint3**, hand（利用側は名前で並べ替えること）

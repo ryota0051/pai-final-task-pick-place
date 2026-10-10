@@ -1,0 +1,17 @@
+recorder_node:
+  ros__parameters:
+    use_sim_time: true
+    output_root: ~/dataset/rosbags/pick_place
+    episode_prefix: ep
+    storage_id: sqlite3            # pai_training の変換は *.db3 を探索する
+    stop_timeout: 10.0
+    discard_dirname: _discarded
+    topics:
+      - /joint_states
+      - /crane_plus_arm_controller/joint_trajectory
+      - /crane_plus_gripper_controller/joint_trajectory
+      - /teleop/ee_state
+      - /task/object_pose
+      - /task/place_pose
+      - /tf
+      - /tf_static

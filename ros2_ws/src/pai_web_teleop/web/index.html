@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRANE+ Web Teleop</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/roslib@1.4.1/build/roslib.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>CRANE+ V2 Web Teleop</h1>
+    <span id="conn" class="badge off">disconnected</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>手先目標 <small>(crane_plus_base 基準)</small></h2>
+      <div id="sliders"></div>
+      <p class="hint">キー: W/S=x±, A/D=y±, R/F=z±, T/G=pitch±, O/C=開/閉, H=ホーム, Space=録画開始/停止<br>
+        ゲームパッド: 左スティック=xy, 右スティック上下=z, LB/RB=pitch, A=閉, B=開</p>
+      <div class="row">
+        <button id="btn-home">ホーム (H)</button>
+        <button id="btn-open">開 (O)</button>
+        <button id="btn-close">閉 (C)</button>
+      </div>
+      <div class="kv">
+        <span>IK</span><span id="ik">-</span>
+        <span>関節角</span><span id="joints">-</span>
+        <span>グリッパ</span><span id="gripper">-</span>
+        <span>テレオペ</span><span id="teleop-enabled">-</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>データ収集</h2>
+      <div class="row">
+        <button id="btn-reset">タスクリセット</button>
+        <button id="btn-record" class="primary">録画開始 (Space)</button>
+        <button id="btn-discard">直前を破棄</button>
+      </div>
+      <div class="kv">
+        <span>状態</span><span id="rec-state">-</span>
+        <span>次エピソード</span><span id="rec-next">-</span>
+        <span>直前</span><span id="rec-last">-</span>
+        <span>物体位置</span><span id="obj">-</span>
+        <span>タスク</span><span id="task">-</span>
+      </div>
+      <p id="log" class="log"></p>
+    </section>
+
+    <section class="card">
+      <h2>自律実行（方策）</h2>
+      <div class="row">
+        <button id="btn-policy-on">方策 ON</button>
+        <button id="btn-policy-off">方策 OFF</button>
+      </div>
+      <div class="kv">
+        <span>状態</span><span id="policy">-</span>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
