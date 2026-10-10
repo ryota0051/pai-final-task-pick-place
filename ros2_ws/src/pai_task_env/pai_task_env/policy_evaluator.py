@@ -17,12 +17,15 @@ import time
 from pathlib import Path
 
 import rclpy
-from geometry_msgs.msg import PoseStamped
+import yaml
+from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Point, PoseStamped
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
 
 from pai_task_env.evaluation import TrialResult, summarize, write_csv
+from pai_task_env.sampler import ObjectSampler, sample_positions
 
 
 class PolicyEvaluator(Node):
@@ -39,6 +42,16 @@ class PolicyEvaluator(Node):
         self.observe_ee = list(p('observe.ee', [0.02, -0.15, 0.15, 1.134]).value)
         self.observe_move_time = p('observe.move_time', 2.0).value
         self.observe_timeout = p('observe.timeout', 5.0).value
+        # 物体位置の固定リスト（条件間で同じ配置を比較するため）。-1 なら毎回ランダム
+        seed = p('positions_seed', -1).value
+        task_cfg = p('task_config', '').value or os.path.join(
+            get_package_share_directory('pai_task_env'), 'config', 'task.yaml')
+        self.positions = None
+        if seed >= 0:
+            with open(task_cfg, encoding='utf-8') as f:
+                tp = yaml.safe_load(f)['task_manager_node']['ros__parameters']
+            sampler = ObjectSampler.from_dict({**tp['sampler'], 'place_xy': tp['place']['xy']})
+            self.positions = sample_positions(sampler, self.trials, seed)
         self.status = {}
         self.detector = {}
         self.obj = None
@@ -47,6 +60,7 @@ class PolicyEvaluator(Node):
         self.create_subscription(String, '/task/detector_status',
                                  lambda m: self.detector.update(json.loads(m.data)), 10)
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
+        self.reset_to_pub = self.create_publisher(Point, '/task/reset_to', 10)
         self.create_subscription(PoseStamped, '/task/object_pose',
                                  lambda m: setattr(self, 'obj', m.pose.position), 10)
         self.triggers = {n: self.create_client(Trigger, n) for n in
@@ -90,12 +104,23 @@ class PolicyEvaluator(Node):
                 return True
         return False
 
+    def reset_object(self, i):
+        if self.positions is None:
+            self.trigger('/task/reset')
+            return
+        before = self.status.get('episode')
+        x, y = self.positions[i]
+        self.reset_to_pub.publish(Point(x=float(x), y=float(y), z=0.0))
+        end = time.monotonic() + 5.0
+        while time.monotonic() < end and self.status.get('episode') == before:
+            self.spin_for(0.05)
+
     def run_trial(self, i) -> TrialResult:
         self.set_bool('/policy/enable', False)
         self.set_bool('/teleop/enable', True)
         if self.observe:
             self.move_ee(*self.observe_ee, duration=self.observe_move_time)
-            self.trigger('/task/reset')
+            self.reset_object(i)
             self.spin_for(0.5)
             if not self.wait_detection():
                 self.get_logger().warn('object was not detected before the trial')
@@ -105,7 +130,7 @@ class PolicyEvaluator(Node):
         else:
             self.trigger('/teleop/home')
             self.spin_for(self.settle_time)
-            self.trigger('/task/reset')
+            self.reset_object(i)
             self.status = {}
             self.spin_for(self.settle_time)
         ox, oy = (self.obj.x, self.obj.y) if self.obj else (float('nan'), float('nan'))

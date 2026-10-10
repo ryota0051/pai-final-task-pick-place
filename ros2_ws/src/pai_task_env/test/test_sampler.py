@@ -41,3 +41,12 @@ def test_from_dict():
         'place_xy': [0.0, -0.15], 'min_dist_from_place': 0.05,
     })
     assert s.place_xy == (0.0, -0.15)
+
+
+def test_sample_positions_is_deterministic_and_valid(sampler):
+    from pai_task_env.sampler import sample_positions
+    a = sample_positions(sampler, n=30, seed=7)
+    b = sample_positions(sampler, n=30, seed=7)
+    assert a == b and len(a) == 30
+    assert all(sampler.is_valid(x, y) for x, y in a)
+    assert sample_positions(sampler, n=30, seed=8) != a

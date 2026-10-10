@@ -44,3 +44,9 @@ class ObjectSampler:
             if self.is_valid(x, y):
                 return (x, y)
         raise SamplingError(f'no valid sample in {self.max_attempts} attempts')
+
+
+def sample_positions(sampler: ObjectSampler, n: int, seed: int):
+    """評価用に、同じ条件で再現可能な物体位置リストを生成する."""
+    rng = random.Random(seed)
+    return [sampler.sample(rng) for _ in range(n)]

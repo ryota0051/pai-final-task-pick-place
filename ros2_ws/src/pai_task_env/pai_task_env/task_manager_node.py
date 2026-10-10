@@ -8,7 +8,7 @@ import subprocess
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point, PoseStamped
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, Empty, String
@@ -84,6 +84,8 @@ class TaskManagerNode(Node):
         self.create_subscription(Odometry, odom_topic, self.on_object_odom, 10)
         self.create_subscription(JointState, '/joint_states', self.on_joint_state, 10)
         self.create_service(Trigger, '/task/reset', self.on_reset)
+        # 評価用: 物体を指定位置（crane_plus_base 基準の x, y）に置いてリセット
+        self.create_subscription(Point, '/task/reset_to', self.on_reset_to, 10)
         self.create_timer(1.0 / status_rate, self.publish_status)
         if randomize_on_start:
             self._startup_timer = self.create_timer(3.0, self._startup_reset)
@@ -114,11 +116,11 @@ class TaskManagerNode(Node):
             self.detach_pub.publish(Empty())
             self.get_logger().info('grasp assist: detach')
 
-    def reset_task(self):
+    def reset_task(self, xy=None):
         if self.grasp_assist is not None:
             self.grasp_assist.force_detach()
             self.detach_pub.publish(Empty())
-        x, y = self.sampler.sample(self.rng)
+        x, y = xy if xy is not None else self.sampler.sample(self.rng)
         obj_ok = self._set_pose(self.object_model, self.frame.base_to_world(
             (x, y, self.rest_z + self.spawn_margin)))
         px, py = self.sampler.place_xy
@@ -142,6 +144,10 @@ class TaskManagerNode(Node):
         res.success = ok
         res.message = f'object=({x:.3f}, {y:.3f})'
         return res
+
+    def on_reset_to(self, msg: Point):
+        ok, (x, y) = self.reset_task((msg.x, msg.y))
+        self.get_logger().info(f'reset_to ({x:.3f}, {y:.3f}) ok={ok}')
 
     def on_object_odom(self, msg: Odometry):
         """OdometryPublisher の world 姿勢を crane_plus_base 基準に変換して publish."""
