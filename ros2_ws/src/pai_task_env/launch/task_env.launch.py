@@ -23,6 +23,7 @@ def generate_launch_description():
         DeclareLaunchArgument('task_config', default_value=os.path.join(share, 'config', 'task.yaml')),
         DeclareLaunchArgument('robot_z', default_value='1.015', description='ロボットのスポーン高さ（task.yaml の base_origin と一致させる）'),
         DeclareLaunchArgument('object_odom_gz_topic', default_value='/model/target_cube/odometry'),
+        DeclareLaunchArgument('camera_config', default_value=os.path.join(share, 'config', 'camera.yaml')),
     ]
 
     # PATH を追加で通さないと STL が読み込まれない（元 launch と同じ）
@@ -67,7 +68,8 @@ def generate_launch_description():
                    [odom_topic, '@nav_msgs/msg/Odometry[ignition.msgs.Odometry'],
                    '/task/gz/attach@std_msgs/msg/Empty]ignition.msgs.Empty',
                    '/task/gz/detach@std_msgs/msg/Empty]ignition.msgs.Empty',
-                   '/task/gz/attach_state@std_msgs/msg/String[ignition.msgs.StringMsg'],
+                   '/task/gz/attach_state@std_msgs/msg/String[ignition.msgs.StringMsg',
+                   '/task/camera/image@sensor_msgs/msg/Image[ignition.msgs.Image'],
         remappings=[(odom_topic, '/task/object_odom')],
     )
 
@@ -75,7 +77,11 @@ def generate_launch_description():
         package='pai_task_env', executable='task_manager_node', output='screen',
         parameters=[LaunchConfiguration('task_config')],
     )
+    detector = Node(
+        package='pai_task_env', executable='object_detector_node', output='screen',
+        parameters=[LaunchConfiguration('camera_config')],
+    )
     return LaunchDescription(args + [
         SetParameter(name='use_sim_time', value=True),
-        ign_gazebo, robot_state_publisher, spawn, *spawners, bridge, task_manager,
+        ign_gazebo, robot_state_publisher, spawn, *spawners, bridge, task_manager, detector,
     ])

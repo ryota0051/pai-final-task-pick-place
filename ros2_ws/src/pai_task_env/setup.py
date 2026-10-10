@@ -28,6 +28,7 @@ setup(
             'task_manager_node = pai_task_env.task_manager_node:main',
             'scripted_demo = pai_task_env.scripted_demo:main',
             'policy_evaluator = pai_task_env.policy_evaluator:main',
+            'object_detector_node = pai_task_env.object_detector_node:main',
         ],
     },
 )

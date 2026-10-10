@@ -6,7 +6,10 @@ requires-python = ">=3.10"
 dependencies = ["pyyaml>=6.0"]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "numpy>=2.2.6",
+    "pytest>=8.0",
+]
 
 [tool.uv]
 package = false

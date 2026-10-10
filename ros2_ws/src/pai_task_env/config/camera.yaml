@@ -1,0 +1,20 @@
+object_detector_node:
+  ros__parameters:
+    use_sim_time: true
+    image_topic: /task/camera/image
+    output_topic: /task/object_pose_est
+    # カメラ（worlds/pick_place.sdf の overhead_camera と一致させる。test_camera_config.py で検証）
+    camera:
+      width: 320
+      height: 240
+      hfov: 1.0                       # [rad]
+      position: [0.12, 0.0, 0.45]     # crane_plus_base 基準 [m]（world z = 1.015 + 0.45）
+      rpy: [0.0, 1.5708, 0.0]         # 真下向き
+    # 赤い円柱の検出
+    detection:
+      min_red: 120
+      max_other_ratio: 0.5
+      min_pixels: 15
+    plane_z: 0.04                     # 上から見える円柱上面の高さ [m]
+    output_z: 0.02                    # 出力する物体中心の高さ [m]（学習データの物体位置と揃える）
+    hold_last: true                   # 遮蔽で見えないときは最後の推定値を出し続ける
