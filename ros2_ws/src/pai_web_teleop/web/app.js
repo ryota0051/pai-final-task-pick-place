@@ -115,7 +115,7 @@
 
   const subJson = (name, cb) => topic(name, 'std_msgs/String').subscribe((m) => cb(JSON.parse(m.data)));
   subJson(cfg.topics.teleop_status, (s) => {
-    $('ik').textContent = s.ik_ok ? 'OK' : '解なし（直前姿勢を維持）';
+    $('ik').textContent = s.ik_ok ? (s.pitch_relaxed ? 'OK（pitch 緩和中）' : 'OK') : '解なし（直前姿勢を維持）';
     $('ik').className = s.ik_ok ? 'ok' : 'ng';
     $('joints').textContent = s.joints.map((v) => v.toFixed(2)).join(', ');
     $('gripper').textContent = s.gripper >= 0.5 ? '閉' : '開';

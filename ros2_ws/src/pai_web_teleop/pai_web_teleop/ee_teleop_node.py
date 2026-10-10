@@ -33,7 +33,8 @@ class EETeleopNode(Node):
         self.max_lin = p('max_linear_speed', 0.08).value
         self.max_pitch = p('max_pitch_speed', 1.0).value
         self.vel_timeout = p('velocity_timeout', 0.3).value
-        home_ee = list(p('home_ee', [0.12, 0.0, 0.10, 1.5708]).value)
+        home_ee = list(p('home_ee', [0.12, 0.0, 0.06, 1.5708]).value)
+        pitch_search_step = p('pitch_search_step', 0.05).value
         ws = Workspace(
             x=tuple(p('workspace.x', [0.0, 0.26]).value),
             y=tuple(p('workspace.y', [-0.2, 0.2]).value),
@@ -49,7 +50,7 @@ class EETeleopNode(Node):
         home_q = kin.inverse(EndEffectorPose(*home_ee))
         if home_q is None:
             raise RuntimeError(f'home_ee {home_ee} has no IK solution')
-        self.state = EETeleopState(kin, ws, home_q, pitch_range)
+        self.state = EETeleopState(kin, ws, home_q, pitch_range, pitch_search_step)
         self.gripper = 0.0
         self.velocity = (0.0, 0.0, 0.0, 0.0)
         self.last_vel_time = None
@@ -132,6 +133,8 @@ class EETeleopNode(Node):
         self.status_pub.publish(String(data=json.dumps({
             'enabled': self.enabled,
             'ik_ok': self.state.last_ik_ok,
+            'pitch_relaxed': self.state.pitch_relaxed,
+            'requested_pitch': round(self.state.requested_pitch, 4),
             'joints': [round(v, 4) for v in self.state.joints],
             'target': [round(t.x, 4), round(t.y, 4), round(t.z, 4), round(t.pitch, 4)],
             'gripper': self.gripper,

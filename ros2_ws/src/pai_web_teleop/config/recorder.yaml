@@ -15,4 +15,3 @@ recorder_node:
       - /task/place_pose
       - /tf
       - /tf_static
-      - /clock
