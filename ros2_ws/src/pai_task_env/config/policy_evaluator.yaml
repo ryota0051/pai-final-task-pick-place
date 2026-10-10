@@ -1,0 +1,7 @@
+policy_evaluator:
+  ros__parameters:
+    trials: 20
+    timeout: 30.0              # 1 試行の制限時間 [s]（デモは 8〜13 秒）
+    settle_time: 2.0           # ホーム・リセット後の待ち [s]
+    label: policy              # 出力ファイル名の接頭辞（baseline / objpos など）
+    output_dir: ~/dataset/eval
