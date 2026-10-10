@@ -60,3 +60,50 @@ def test_centroid_none_when_too_small():
     m = np.zeros((10, 10), dtype=bool)
     m[0, 0] = True
     assert mask_centroid(m, min_pixels=5) is None
+
+
+# ---- 推定値の保持（遮蔽対策）----
+from pai_task_env.vision import EstimateHolder  # noqa: E402
+
+
+def test_holder_returns_latest_detection():
+    h = EstimateHolder(hold_last=True)
+    assert h.update((0.1, 0.0, 0.02), episode=1) == (0.1, 0.0, 0.02)
+    assert h.update(None, episode=1) == (0.1, 0.0, 0.02)   # 遮蔽中は保持
+
+
+def test_holder_without_hold_returns_none_when_occluded():
+    h = EstimateHolder(hold_last=False)
+    h.update((0.1, 0.0, 0.02), episode=1)
+    assert h.update(None, episode=1) is None
+
+
+def test_holder_clears_on_new_episode():
+    h = EstimateHolder(hold_last=True)
+    h.update((0.1, 0.0, 0.02), episode=1)
+    # 新しいエピソードで見えていなければ、前エピソードの値は使わない
+    assert h.update(None, episode=2) is None
+    assert h.update((0.2, 0.05, 0.02), episode=2) == (0.2, 0.05, 0.02)
+    assert h.detected_in_episode
+
+
+def test_holder_episode_none_keeps_state():
+    h = EstimateHolder(hold_last=True)
+    h.update((0.1, 0.0, 0.02), episode=None)
+    assert h.update(None, episode=None) == (0.1, 0.0, 0.02)
+
+
+def test_holder_ignores_partially_occluded_detection():
+    # 見えている画素数がエピソード内最大の min_visible_ratio 未満なら部分遮蔽とみなして無視する
+    h = EstimateHolder(hold_last=True, min_visible_ratio=0.85)
+    assert h.update((0.145, 0.0, 0.02), episode=1, pixels=640) == (0.145, 0.0, 0.02)
+    assert h.update((0.150, 0.0, 0.02), episode=1, pixels=600) == (0.150, 0.0, 0.02)  # 94% → 採用
+    assert h.update((0.158, 0.0, 0.02), episode=1, pixels=400) == (0.150, 0.0, 0.02)  # 63% → 無視
+    assert h.partially_occluded
+
+
+def test_holder_visible_ratio_resets_per_episode():
+    h = EstimateHolder(hold_last=True, min_visible_ratio=0.85)
+    h.update((0.1, 0.0, 0.02), episode=1, pixels=700)
+    # 新エピソードでは最大画素数もリセット（物体位置によって見え方が変わるため）
+    assert h.update((0.2, 0.0, 0.02), episode=2, pixels=500) == (0.2, 0.0, 0.02)

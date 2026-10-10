@@ -11,8 +11,8 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import os
-import random
 import time
 from pathlib import Path
 
@@ -34,10 +34,19 @@ class PolicyEvaluator(Node):
         self.settle_time = p('settle_time', 2.0).value
         self.label = p('label', 'policy').value
         self.output_dir = Path(os.path.expanduser(p('output_dir', '~/dataset/eval').value))
+        # カメラ推定を使う場合: 腕をカメラ視野外へ退避 → リセット → 検出を待つ → ホーム（遮蔽対策）
+        self.observe = p('observe.enabled', False).value
+        self.observe_ee = list(p('observe.ee', [0.02, -0.15, 0.15, 1.134]).value)
+        self.observe_move_time = p('observe.move_time', 2.0).value
+        self.observe_timeout = p('observe.timeout', 5.0).value
         self.status = {}
+        self.detector = {}
         self.obj = None
         self.create_subscription(String, '/task/status',
                                  lambda m: self.status.update(json.loads(m.data)), 10)
+        self.create_subscription(String, '/task/detector_status',
+                                 lambda m: self.detector.update(json.loads(m.data)), 10)
+        self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
         self.create_subscription(PoseStamped, '/task/object_pose',
                                  lambda m: setattr(self, 'obj', m.pose.position), 10)
         self.triggers = {n: self.create_client(Trigger, n) for n in
@@ -62,14 +71,43 @@ class PolicyEvaluator(Node):
         while time.monotonic() < end:
             rclpy.spin_once(self, timeout_sec=0.02)
 
+    def move_ee(self, x, y, z, pitch, duration):
+        m = PoseStamped()
+        m.header.frame_id = 'crane_plus_base'
+        m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
+        m.pose.orientation.y, m.pose.orientation.w = math.sin(pitch / 2), math.cos(pitch / 2)
+        end = time.monotonic() + duration
+        while time.monotonic() < end:
+            self.target_pub.publish(m)
+            self.spin_for(0.05)
+
+    def wait_detection(self) -> bool:
+        end = time.monotonic() + self.observe_timeout
+        while time.monotonic() < end:
+            self.spin_for(0.1)
+            d = self.detector
+            if d.get('detected_in_episode') and d.get('episode') == self.status.get('episode'):
+                return True
+        return False
+
     def run_trial(self, i) -> TrialResult:
         self.set_bool('/policy/enable', False)
         self.set_bool('/teleop/enable', True)
-        self.trigger('/teleop/home')
-        self.spin_for(self.settle_time)
-        self.trigger('/task/reset')
-        self.status = {}
-        self.spin_for(self.settle_time)
+        if self.observe:
+            self.move_ee(*self.observe_ee, duration=self.observe_move_time)
+            self.trigger('/task/reset')
+            self.spin_for(0.5)
+            if not self.wait_detection():
+                self.get_logger().warn('object was not detected before the trial')
+            self.trigger('/teleop/home')
+            self.status = {}
+            self.spin_for(self.settle_time)
+        else:
+            self.trigger('/teleop/home')
+            self.spin_for(self.settle_time)
+            self.trigger('/task/reset')
+            self.status = {}
+            self.spin_for(self.settle_time)
         ox, oy = (self.obj.x, self.obj.y) if self.obj else (float('nan'), float('nan'))
 
         self.set_bool('/teleop/enable', False)

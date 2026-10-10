@@ -70,3 +70,40 @@ def mask_centroid(mask: np.ndarray, min_pixels: int) -> Optional[Tuple[float, fl
     if len(us) < min_pixels:
         return None
     return (float(us.mean()), float(vs.mean()))
+
+
+class EstimateHolder:
+    """物体位置推定値の保持.
+
+    遮蔽（腕が物体を隠す）で検出できない間は最後の推定値を返す（hold_last）。
+    腕が物体の一部だけを隠すと、見えている部分の重心がずれて推定値が物体から離れる方向へ動く。
+    そこで見えている画素数がエピソード内の最大値の min_visible_ratio 未満の検出は部分遮蔽とみなして採用しない。
+    タスクのエピソードが変わったら前エピソードの値は破棄し、新たに検出されるまで None を返す。
+    """
+
+    def __init__(self, hold_last: bool, min_visible_ratio: float = 0.0):
+        self.hold_last = hold_last
+        self.min_visible_ratio = min_visible_ratio
+        self.last: Optional[Tuple[float, float, float]] = None
+        self.episode = None
+        self.detected_in_episode = False
+        self.max_pixels = 0
+        self.partially_occluded = False
+
+    def update(self, detection, episode, pixels: Optional[int] = None) -> Optional[Tuple[float, float, float]]:
+        if episode is not None and episode != self.episode:
+            self.episode = episode
+            self.last = None
+            self.detected_in_episode = False
+            self.max_pixels = 0
+        self.partially_occluded = False
+        if detection is not None and pixels is not None:
+            self.max_pixels = max(self.max_pixels, pixels)
+            if pixels < self.min_visible_ratio * self.max_pixels:
+                self.partially_occluded = True
+                detection = None
+        if detection is not None:
+            self.last = tuple(detection)
+            self.detected_in_episode = True
+            return self.last
+        return self.last if self.hold_last else None
