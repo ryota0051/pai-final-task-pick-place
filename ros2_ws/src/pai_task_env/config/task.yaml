@@ -1,0 +1,41 @@
+task_manager_node:
+  ros__parameters:
+    use_sim_time: true
+    mode: pick                      # pick: 把持・配置 / reach: 物体へ手先を伸ばす（フォールバック）
+    seed: -1                        # -1 なら毎回ランダム、0 以上で再現可能
+    randomize_on_start: true
+
+    gazebo:
+      world_name: default
+      object_model: target_cube
+      place_model: place_zone
+      gz_pose_topic: /task/gz_dynamic_poses   # ros_gz_bridge で /world/<world>/dynamic_pose/info を中継
+      service_timeout_ms: 2000
+
+    # world 座標系における crane_plus_base（spawn 時の -z 1.015 と一致させる）
+    base_origin: [0.0, 0.0, 1.015]
+    base_yaw: 0.0
+
+    object:
+      size: 0.025                   # キューブ一辺 [m]
+      spawn_z_margin: 0.005         # 置き直し時に浮かせる量 [m]
+
+    # 物体スポーン範囲（crane_plus_base 基準）
+    sampler:
+      x: [0.10, 0.20]
+      y: [-0.08, 0.12]
+      r: [0.10, 0.22]
+      min_dist_from_place: 0.08
+      max_attempts: 1000
+
+    place:
+      xy: [0.12, -0.12]
+      radius: 0.03
+
+    success:
+      z_tolerance: 0.01
+      lift_height: 0.02
+      hold_time: 0.5
+      reach_threshold: 0.02
+
+    status_rate: 10.0
