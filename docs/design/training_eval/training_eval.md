@@ -37,3 +37,13 @@ ros2 run pai_task_env policy_evaluator --ros-args \
 ```bash
 pixi run --frozen debug-policy --dataset-root ... --repo-id ... --policy-path ... --episode-index 0 --device cuda --quiet --save /tmp/ep0.png
 ```
+
+## 計測結果（スモークテスト, 2026-10-10）
+暫定データ 15 エピソード（4485 フレーム）、batch 32、300 step:
+
+| device | ms/step | 300 step |
+|---|---|---|
+| RTX 4090 (cuda) | 45.6 | 13.7 s |
+| CPU | 329.9 | 99.0 s |
+
+推論レイテンシ（GPU, チャンク 1 回予測）: 約 11 ms（20Hz 制御周期 50ms に十分収まる）

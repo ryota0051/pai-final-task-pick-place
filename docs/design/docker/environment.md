@@ -41,3 +41,9 @@ cd ~/pai_training && pixi install               # 初回のみ
 ## GPU
 - ホスト: Windows 11 + Docker Desktop (WSL2) + RTX 4090。Docker Desktop の nvidia ランタイムで `gpus: all` が有効。
 - コンテナ内 `nvidia-smi` で GPU を確認済み。
+
+## 注意: RMW 実装の統一
+ベースイメージの `~/.bashrc` で `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` を設定している。
+`docker exec ... bash -c '...'`（非対話シェル）では `.bashrc` が読まれず FastDDS で起動してしまい、
+CycloneDDS 側のノードとトピックは一部通じてもサービスがハングする（2026-10-10 に推論ノードで発生、`RTPS_READER_HISTORY` エラー）。
+コンテナ内のコマンドは `bash -ic` か対話シェル（`docker exec -it -u ubuntu pai_final_task bash`）で実行すること。
