@@ -44,3 +44,7 @@ r = L2 sinφ2 + L3 sinφ3 + Lt sinφ4、h = z_sh + L2 cosφ2 + L3 cosφ3 + Lt co
 - tool_length / tool_offset_y の把持中心キャリブレーション（Phase 3 の把持試験で確定）
 
 
+
+## 検証済み
+- Gazebo 上で `crane_plus_base→crane_plus_link3/link4` の TF と FK の肘・リスト位置が 3 姿勢で一致（2026-10-10）
+- `/joint_states` の並びは joint1, joint2, **joint4, joint3**, hand（利用側は名前で並べ替えること）
