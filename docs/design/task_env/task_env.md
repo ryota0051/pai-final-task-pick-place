@@ -78,3 +78,20 @@ ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/co
 
 ## 動作確認（2026-10-10）
 - スクリプトデモ（pitch 65°）で 8/8 成功（`/task/reset` によるランダム配置込み）
+
+## カメラによる物体位置推定（object_detector_node, 設定: `config/camera.yaml`）
+物体位置の真値（`/task/object_pose`）は実機では得られないため、俯瞰カメラから推定した `/task/object_pose_est` を用意した。
+
+- world に固定の俯瞰カメラ（crane_plus_base 基準 (0.12, 0, 0.45)、真下向き、320×240、hfov 1.0rad、10Hz）を追加
+- 赤色画素（R ≥ 120 かつ G, B ≤ 0.5R）の重心 → ピンホールモデルで円柱上面の高さ（z=0.04）の平面へ逆投影 → 物体中心高さ 0.02 として出力
+- 遮蔽で見えないときは最後の推定値を保持（`hold_last`）。検出状態は `/task/detector_status`
+- カメラ設定と world SDF の一致、作業範囲が画角内に入ることを `test_camera_config.py` で検証
+
+![俯瞰カメラ画像](img/overhead_camera.png)
+
+### 動作確認（2026-10-10）
+| 項目 | 結果 |
+|---|---|
+| 画像レート | 約 9Hz（設定 10Hz） |
+| シミュレーション実時間比 | 0.91（GPU 学習を並行実行中。カメラなしは約 1.0） |
+| 推定誤差（ランダム配置 3 回） | 約 1.5mm 以下 |
