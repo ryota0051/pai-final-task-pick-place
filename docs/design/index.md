@@ -7,3 +7,5 @@
 | [docker](docker/index.md) | Docker / GPU 開発環境 |
 | [web_teleop](web_teleop/index.md) | ブラウザ手先テレオペ・録画ノード |
 | [task_env](task_env/index.md) | 把持・配置タスク環境（world・物体ランダム化・成功判定・把持アシスト） |
+| [dataset](dataset/index.md) | rosbag → LeRobotDataset 変換 |
+| [training_eval](training_eval/index.md) | ACT 学習・推論ノード・方策評価 |

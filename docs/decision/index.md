@@ -8,3 +8,4 @@
 | [0004](0004-pixiとuvの使い分け.md) | pixi と uv の使い分け | pai_training は pixi、自作純 Python/ホスト側は uv |
 | [0005](0005-物体位置の取得方式.md) | 物体位置の取得方式 | OdometryPublisher + ros_gz_bridge で物体の world 姿勢を取得 |
 | [0006](0006-把持アシスト.md) | 把持アシスト | 摩擦把持が滑落するため DetachableJoint で attach/detach |
+| [0007](0007-スクリプトデモによるデータ生成.md) | スクリプトデモによるデータ生成 | 比較実験用に物体位置を使うスクリプトデモで自動収録。人手デモは操作性評価・混合に使用 |

@@ -13,7 +13,7 @@ ee_teleop_node:
     max_linear_speed: 0.08         # [m/s]
     max_pitch_speed: 1.0           # [rad/s]
     velocity_timeout: 0.15         # 速度指令が途絶えたら停止 [s]
-    home_ee: [0.10, 0.0, 0.08, 1.5708]   # ホーム手先姿勢 x, y, z, pitch（真下向き）
+    home_ee: [0.10, 0.0, 0.08, 1.134]    # ホーム手先姿勢 x, y, z, pitch（65deg: 作業範囲全域で IK 可能な傾き）
     pitch_search_step: 0.05        # 要求 pitch で IK 不可のとき pitch を緩和して探索する刻み [rad]（0 で無効）
     pitch_range: [-0.5, 1.5708]
     start_enabled: true

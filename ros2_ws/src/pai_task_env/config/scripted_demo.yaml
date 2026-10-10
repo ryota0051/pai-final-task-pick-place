@@ -1,0 +1,26 @@
+scripted_demo:
+  ros__parameters:
+    episodes: 1
+    record: true                # false なら収録せず動作のみ
+    rate: 20.0                  # 目標 publish 周期 [Hz]（テレオペと同じ）
+    settle_time: 1.5            # ホーム・リセット後の待ち [s]
+    post_time: 1.0              # 計画終了後も収録を続ける時間 [s]（成功判定の hold_time より長く）
+    seed: -1
+    verbose: false              # true でフェーズごとのタスク状態をログ出力
+
+    plan:
+      z_approach: 0.07
+      z_grasp: 0.02             # 円柱（高さ 4cm）の中心高さ
+      z_carry: 0.08
+      z_place: 0.025
+      pitch: 1.134              # 65deg。真下向きだと接近高さで IK 不可（サンプル範囲 301 点で 0.02〜0.08m 全て可）
+      move_speed: 0.05          # [m/s]
+      min_segment_time: 0.5
+      grasp_hold: 0.8
+      release_hold: 0.6
+
+    # デモの多様性（人のテレオペに近いばらつきを与える）
+    randomize:
+      speed_scale: [0.8, 1.2]
+      height_jitter: 0.01       # 経由高さの揺らぎ [m]
+      xy_noise: 0.003           # 把持・配置位置の揺らぎ [m]

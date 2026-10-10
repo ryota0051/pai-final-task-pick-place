@@ -50,4 +50,5 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - Gazebo 上で FK（`crane_plus_kinematics`）と TF（crane_plus_base→link3/link4）が 3 姿勢で一致
 - ブラウザから W キー 1 秒で x: 0.12→0.18、pitch 自動緩和、グリッパ閉を確認。Gazebo の関節角・TF も追従
 - 録画ボタンで ep0 を収録し `ros2 bag info` で全トピックを確認、破棄ボタンで退避
+- ホームは `[0.10, 0.0, 0.08]`、pitch 65°（作業範囲全域で IK 可能な傾き。task_env 設計書参照）
 - グリッパ閉指令は 0.30rad（4cm 物体で爪が接触する 0.19rad より約 1cm 押し込む）。根拠は task_env 設計書のグリッパ幾何

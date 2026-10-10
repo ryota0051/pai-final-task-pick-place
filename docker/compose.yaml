@@ -23,6 +23,7 @@ services:
     volumes:
       # 自作 ROS 2 パッケージ（ソースはホストと共有、ビルド成果物は named volume）
       - ../ros2_ws/src:/home/ubuntu/final_task/ros2_ws/src
+      - ../scripts:/home/ubuntu/final_task/scripts:ro
       - ros2_build:/home/ubuntu/final_task/ros2_ws/build
       - ros2_install:/home/ubuntu/final_task/ros2_ws/install
       - ros2_log:/home/ubuntu/final_task/ros2_ws/log

@@ -12,7 +12,8 @@ ros2 launch pai_web_teleop web_teleop.launch.py      # テレオペ UI（別タ�
 
 ## world（`worlds/pick_place.sdf`）
 - `table.sdf` と同じ Sun / Ground Plane / Table（Fuel）。テーブル上面 = ロボット基準 z≈0（ロボットは world z=1.015 にスポーン）
-- `target_cube`: 4cm 角、0.03kg、mu=2.0。OdometryPublisher で world 姿勢を `/model/target_cube/odometry` に publish
+- `target_cube`: **直径 4cm・高さ 4cm の円柱**、0.03kg、mu=2.0。OdometryPublisher で world 姿勢を `/model/target_cube/odometry` に publish
+  - 当初は 4cm 立方体だったが、手首ヨーの無い 4 軸アームでは base のヨー角で接近するため、世界軸に揃った立方体を対角で挟んでしまい把持できなかった（ヨー 0.6rad 以上で失敗）。向きに依らない円柱に変更
 - `place_zone`: 半径 3.5cm の可視マーカー（衝突なし・static）
 - 物体・置き場所の位置の正は `task.yaml`。起動時とリセット時に `ign service /world/default/set_pose` で上書きする
 
@@ -50,7 +51,30 @@ x/y 範囲から一様サンプルし、水平半径範囲 `r`（真下向き把
 | 爪間隔 | q=0.17: 4.1cm / q=0.30: 3.0cm / q=0.40: 2.1cm |
 | 可動指先端の深さ | 閉動作中に最深 約 0.138（link4 z） |
 
-→ 4cm キューブ、把持中心 `tool_length=0.125`, `tool_offset_y=0.017`、グリッパ閉指令 0.30rad を採用。
+→ 直径 4cm 円柱、把持中心 `tool_length=0.125`, `tool_offset_y=0.017`、グリッパ閉指令 0.30rad を採用。
+
+## 手先 pitch の選定
+サンプリング範囲 301 点で「把持高さ 0.02 と接近高さ 0.06〜0.08 の両方が IK 可能」な割合を pitch ごとに算出した。
+
+| pitch | z=0.02 & 0.06 | z=0.02 & 0.08 |
+|---|---|---|
+| 90°（真下） | 0/301 | 0/301 |
+| 75° | 301/301 | 77/301 |
+| 65° | 301/301 | 301/301 |
+| 50° | 258/301 | 258/301 |
+
+→ スクリプトデモ・テレオペのホームとも **65°（1.134rad）** を既定とする。真下向きだと接近時に pitch 緩和で姿勢が大きく変わり、把持タイミングに腕が追従できず失敗していた。
+
+## スクリプトデモ（`scripted_demo`, 設定: `config/scripted_demo.yaml`）
+パイプライン検証とデモデータ生成用。1 エピソードは
+`/teleop/home` → `/task/reset` → `/recorder/start` → 計画実行 → `/recorder/stop` →（失敗なら `/recorder/discard_last`）。
+- 計画（`scripted_policy.PickPlacePlan`）: start → approach → descend → grasp → lift → carry → lower → release → retreat。位置は min-jerk 補間、区間時間は距離/速度（下限あり）
+- 多様性: 速度倍率・経由高さ・把持/配置位置にランダムな揺らぎ（`randomize`）
+- テレオペと同じ `/teleop/ee_target`・`/teleop/gripper` を 20Hz で publish するので、収録されるトピックは人のテレオペと同一
+
+```bash
+ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
+```
 
 ## 動作確認（2026-10-10）
-スクリプト（上から接近→下降→閉→持ち上げ→置き場所へ→開）で 3 エピソード連続成功（`/task/reset` 込み）。
+- スクリプトデモ（pitch 65°）で 8/8 成功（`/task/reset` によるランダム配置込み）
