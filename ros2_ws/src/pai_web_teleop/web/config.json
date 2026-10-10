@@ -1,0 +1,41 @@
+{
+  "rosbridge_port": 9090,
+  "command_rate_hz": 20,
+  "linear_speed": 0.05,
+  "pitch_speed": 0.8,
+  "gamepad_deadzone": 0.15,
+  "slider_ranges": {
+    "x": [0.0, 0.26],
+    "y": [-0.2, 0.2],
+    "z": [-0.01, 0.25],
+    "pitch": [-0.5, 1.5708]
+  },
+  "keys": {
+    "x+": "w", "x-": "s",
+    "y+": "a", "y-": "d",
+    "z+": "r", "z-": "f",
+    "pitch+": "t", "pitch-": "g",
+    "open": "o", "close": "c",
+    "home": "h", "record": " "
+  },
+  "topics": {
+    "ee_velocity": "/teleop/ee_velocity",
+    "ee_target": "/teleop/ee_target",
+    "gripper": "/teleop/gripper",
+    "ee_state": "/teleop/ee_state",
+    "teleop_status": "/teleop/status",
+    "recorder_status": "/recorder/status",
+    "object_pose": "/task/object_pose",
+    "task_status": "/task/status",
+    "policy_status": "/policy/status"
+  },
+  "services": {
+    "home": "/teleop/home",
+    "teleop_enable": "/teleop/enable",
+    "record_start": "/recorder/start",
+    "record_stop": "/recorder/stop",
+    "discard_last": "/recorder/discard_last",
+    "task_reset": "/task/reset",
+    "policy_enable": "/policy/enable"
+  }
+}

@@ -1,0 +1,23 @@
+ee_teleop_node:
+  ros__parameters:
+    use_sim_time: true
+    kinematics_config: ""          # 空なら crane_plus_kinematics/config/kinematics.yaml
+    publish_rate: 20.0             # 演習の teleop_keyboard と同じ 20Hz
+    trajectory_time: 0.1           # JointTrajectoryPoint.time_from_start [s]
+    frame_id: crane_plus_base
+    arm_topic: /crane_plus_arm_controller/joint_trajectory
+    gripper_topic: /crane_plus_gripper_controller/joint_trajectory
+    gripper_joint_name: crane_plus_joint_hand
+    gripper_open: -0.5236          # -30deg（演習と同じ）
+    gripper_close: 0.1745          # 10deg
+    max_linear_speed: 0.08         # [m/s]
+    max_pitch_speed: 1.0           # [rad/s]
+    velocity_timeout: 0.3          # 速度指令が途絶えたら停止 [s]
+    home_ee: [0.12, 0.0, 0.10, 1.5708]   # ホーム手先姿勢 x, y, z, pitch（真下向き）
+    pitch_range: [-0.5, 1.5708]
+    start_enabled: true
+    workspace:
+      x: [0.0, 0.26]
+      y: [-0.2, 0.2]
+      z: [-0.01, 0.25]             # crane_plus_base 基準。テーブル面高さは Gazebo で要確認
+      r: [0.06, 0.26]
