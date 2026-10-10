@@ -13,7 +13,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
-from pai_task_env.vision import CameraModel, mask_centroid, red_mask
+from pai_task_env.vision import CameraModel, EstimateHolder, mask_centroid, red_mask
 
 
 class ObjectDetectorNode(Node):
@@ -31,14 +31,18 @@ class ObjectDetectorNode(Node):
         self.min_pixels = p('detection.min_pixels', 15).value
         self.plane_z = p('plane_z', 0.04).value
         self.output_z = p('output_z', 0.02).value
-        self.hold_last = p('hold_last', True).value
-
-        self.last = None
+        self.holder = EstimateHolder(hold_last=p('hold_last', True).value)
+        self.episode = None
         self.detected = False
         self.pub = self.create_publisher(PoseStamped, output_topic, 10)
         self.status_pub = self.create_publisher(String, '/task/detector_status', 10)
         self.create_subscription(Image, image_topic, self.on_image, 10)
+        # タスクのエピソードが変わったら前エピソードの推定値を破棄する
+        self.create_subscription(String, '/task/status', self.on_task_status, 10)
         self.get_logger().info(f'object_detector_node: {image_topic} -> {output_topic}')
+
+    def on_task_status(self, msg: String):
+        self.episode = json.loads(msg.data).get('episode')
 
     def on_image(self, msg: Image):
         if msg.encoding not in ('rgb8', 'bgr8'):
@@ -50,19 +54,22 @@ class ObjectDetectorNode(Node):
         mask = red_mask(img, self.min_red, self.max_other_ratio)
         c = mask_centroid(mask, self.min_pixels)
         self.detected = c is not None
+        detection = None
         if c is not None:
             x, y, _ = self.cam.pixel_to_plane(c[0], c[1], self.plane_z)
-            self.last = (x, y, self.output_z)
-        if self.last is not None and (self.detected or self.hold_last):
+            detection = (x, y, self.output_z)
+        estimate = self.holder.update(detection, self.episode)
+        if estimate is not None:
             ps = PoseStamped()
             ps.header.stamp = msg.header.stamp
             ps.header.frame_id = 'crane_plus_base'
-            ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = self.last
+            ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = estimate
             ps.pose.orientation.w = 1.0
             self.pub.publish(ps)
         self.status_pub.publish(String(data=json.dumps({
-            'detected': self.detected, 'pixels': int(mask.sum()),
-            'estimate': None if self.last is None else [round(v, 4) for v in self.last]})))
+            'detected': self.detected, 'pixels': int(mask.sum()), 'episode': self.episode,
+            'detected_in_episode': self.holder.detected_in_episode,
+            'estimate': None if estimate is None else [round(v, 4) for v in estimate]})))
 
 
 def main():

@@ -8,7 +8,7 @@ TASK_WAIT=${TASK_WAIT:-20}   # Gazebo・コントローラの起動待ち [s]
 
 pkill -f "ros2 launch" ; pkill -f "ign gazebo"; pkill -f robot_state_publisher; pkill -f parameter_bridge
 pkill -f rosbridge; pkill -f "http.server"; pkill -f ee_teleop_node; pkill -f recorder_node
-pkill -f task_manager_node; pkill -f spawner
+pkill -f task_manager_node; pkill -f object_detector_node; pkill -f spawner
 sleep 3
 
 (cd "$WS" && colcon build --symlink-install 2>&1 | tail -1)

@@ -5,3 +5,10 @@ policy_evaluator:
     settle_time: 2.0           # ホーム・リセット後の待ち [s]
     label: policy              # 出力ファイル名の接頭辞（baseline / objpos など）
     output_dir: ~/dataset/eval
+    # カメラ推定（/task/object_pose_est）で評価する場合の遮蔽対策:
+    # 腕をカメラ視野外へ退避 → リセット → 検出を待つ → ホーム → 開始（推定値は検出ノードが保持）
+    observe:
+      enabled: false
+      ee: [0.02, -0.15, 0.15, 1.134]   # 退避姿勢 x, y, z, pitch（物体のサンプル範囲 y >= -0.06 を覆わない側）
+      move_time: 2.0
+      timeout: 5.0

@@ -70,3 +70,28 @@ def mask_centroid(mask: np.ndarray, min_pixels: int) -> Optional[Tuple[float, fl
     if len(us) < min_pixels:
         return None
     return (float(us.mean()), float(vs.mean()))
+
+
+class EstimateHolder:
+    """物体位置推定値の保持.
+
+    遮蔽（腕が物体を隠す）で検出できない間は最後の推定値を返す（hold_last）。
+    ただしタスクのエピソードが変わったら前エピソードの値は破棄し、新たに検出されるまで None を返す。
+    """
+
+    def __init__(self, hold_last: bool):
+        self.hold_last = hold_last
+        self.last: Optional[Tuple[float, float, float]] = None
+        self.episode = None
+        self.detected_in_episode = False
+
+    def update(self, detection, episode) -> Optional[Tuple[float, float, float]]:
+        if episode is not None and episode != self.episode:
+            self.episode = episode
+            self.last = None
+            self.detected_in_episode = False
+        if detection is not None:
+            self.last = tuple(detection)
+            self.detected_in_episode = True
+            return self.last
+        return self.last if self.hold_last else None
