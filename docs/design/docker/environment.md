@@ -35,6 +35,7 @@ cp .env.example .env
 docker compose up -d --build
 docker exec -it -u ubuntu pai_final_task bash   # もしくは http://localhost:6080
 ft_build                                        # 自作パッケージのビルド
+~/final_task/scripts/sim/start_stack.sh          # Gazebo + タスク環境 + テレオペ UI を起動
 cd ~/pai_training && pixi install               # 初回のみ
 ```
 
