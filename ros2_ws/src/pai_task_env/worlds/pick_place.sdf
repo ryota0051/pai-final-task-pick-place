@@ -12,6 +12,10 @@
     <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
     <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
     <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <!-- 俯瞰カメラの描画用 -->
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
 
     <include>
       <uri>https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Sun</uri>
@@ -58,6 +62,24 @@
         <odom_publish_frequency>50</odom_publish_frequency>
         <dimensions>3</dimensions>
       </plugin>
+    </model>
+
+    <!-- 俯瞰カメラ（物体位置推定用）。設定は config/camera.yaml と一致させる（test_camera_config.py） -->
+    <model name="overhead_camera">
+      <static>true</static>
+      <pose>0.12 0 1.465 0 1.5708 0</pose>
+      <link name="link">
+        <sensor name="camera" type="camera">
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <topic>/task/camera/image</topic>
+          <camera>
+            <horizontal_fov>1.0</horizontal_fov>
+            <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+            <clip><near>0.05</near><far>3.0</far></clip>
+          </camera>
+        </sensor>
+      </link>
     </model>
 
     <!-- 置き場所マーカー（衝突なしの薄い円盤） -->
