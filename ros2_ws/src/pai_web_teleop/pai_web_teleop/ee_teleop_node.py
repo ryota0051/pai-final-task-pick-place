@@ -33,7 +33,7 @@ class EETeleopNode(Node):
         self.max_lin = p('max_linear_speed', 0.08).value
         self.max_pitch = p('max_pitch_speed', 1.0).value
         self.vel_timeout = p('velocity_timeout', 0.3).value
-        home_ee = list(p('home_ee', [0.10, 0.0, 0.08, 1.5708]).value)
+        home_ee = list(p('home_ee', [0.10, 0.0, 0.08, 1.134]).value)
         pitch_search_step = p('pitch_search_step', 0.05).value
         ws = Workspace(
             x=tuple(p('workspace.x', [0.0, 0.26]).value),

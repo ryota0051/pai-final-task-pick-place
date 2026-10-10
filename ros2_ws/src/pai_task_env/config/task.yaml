@@ -18,7 +18,7 @@ task_manager_node:
     base_yaw: 0.0
 
     object:
-      size: 0.04                    # キューブ一辺 [m]（world SDF と一致させる）
+      size: 0.04                    # 円柱の高さ（= 直径）[m]（world SDF と一致させる）
       spawn_z_margin: 0.005         # 置き直し時に浮かせる量 [m]
 
     # 物体スポーン範囲（crane_plus_base 基準）
