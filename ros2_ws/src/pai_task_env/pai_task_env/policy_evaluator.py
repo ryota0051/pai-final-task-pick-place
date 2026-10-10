@@ -21,10 +21,13 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Point, PoseStamped
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
 
-from pai_task_env.evaluation import TrialResult, summarize, write_csv
+from pai_task_env.evaluation import (
+    SettleDetector, TrialResult, parse_positions, summarize, write_csv)
 from pai_task_env.sampler import ObjectSampler, sample_positions
 
 
@@ -35,6 +38,9 @@ class PolicyEvaluator(Node):
         self.trials = p('trials', 20).value
         self.timeout = p('timeout', 30.0).value
         self.settle_time = p('settle_time', 2.0).value
+        # ホームへの移動完了待ち（関節が静止してから開始する）。固定時間だけでは移動途中で開始することがある
+        self.settle = SettleDetector(p('settle.window', 0.5).value, p('settle.tolerance', 0.002).value)
+        self.settle_timeout = p('settle.timeout', 10.0).value
         self.label = p('label', 'policy').value
         self.output_dir = Path(os.path.expanduser(p('output_dir', '~/dataset/eval').value))
         # カメラ推定を使う場合: 腕をカメラ視野外へ退避 → リセット → 検出を待つ → ホーム（遮蔽対策）
@@ -52,6 +58,11 @@ class PolicyEvaluator(Node):
                 tp = yaml.safe_load(f)['task_manager_node']['ros__parameters']
             sampler = ObjectSampler.from_dict({**tp['sampler'], 'place_xy': tp['place']['xy']})
             self.positions = sample_positions(sampler, self.trials, seed)
+        # 物体位置の直接指定 [x0, y0, x1, y1, ...]（特定の領域の走査用）。指定時は seed より優先し、試行数も上書き
+        explicit = parse_positions(p('positions', Parameter.Type.DOUBLE_ARRAY).value or [])
+        if explicit:
+            self.positions = explicit
+            self.trials = len(explicit)
         self.status = {}
         self.detector = {}
         self.obj = None
@@ -61,6 +72,9 @@ class PolicyEvaluator(Node):
                                  lambda m: self.detector.update(json.loads(m.data)), 10)
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
         self.reset_to_pub = self.create_publisher(Point, '/task/reset_to', 10)
+        self.create_subscription(
+            JointState, '/joint_states',
+            lambda m: self.settle.update(time.monotonic(), list(m.position)), 10)
         self.create_subscription(PoseStamped, '/task/object_pose',
                                  lambda m: setattr(self, 'obj', m.pose.position), 10)
         self.triggers = {n: self.create_client(Trigger, n) for n in
@@ -84,6 +98,16 @@ class PolicyEvaluator(Node):
         end = time.monotonic() + sec
         while time.monotonic() < end:
             rclpy.spin_once(self, timeout_sec=0.02)
+
+    def wait_settled(self) -> bool:
+        self.settle.reset()
+        end = time.monotonic() + self.settle_timeout
+        while time.monotonic() < end:
+            self.spin_for(0.05)
+            if self.settle.settled:
+                return True
+        self.get_logger().warn('arm did not settle at home before the trial')
+        return False
 
     def move_ee(self, x, y, z, pitch, duration):
         m = PoseStamped()
@@ -126,6 +150,7 @@ class PolicyEvaluator(Node):
                 self.get_logger().warn('object was not detected before the trial')
             self.trigger('/teleop/home')
             self.status = {}
+            self.wait_settled()
             self.spin_for(self.settle_time)
         else:
             self.trigger('/teleop/home')
@@ -133,6 +158,7 @@ class PolicyEvaluator(Node):
             self.reset_object(i)
             self.status = {}
             self.spin_for(self.settle_time)
+            self.wait_settled()
         ox, oy = (self.obj.x, self.obj.y) if self.obj else (float('nan'), float('nan'))
 
         self.set_bool('/teleop/enable', False)

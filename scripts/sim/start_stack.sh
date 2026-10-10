@@ -12,7 +12,7 @@ pkill -f task_manager_node; pkill -f object_detector_node; pkill -f spawner
 sleep 3
 
 (cd "$WS" && colcon build --symlink-install 2>&1 | tail -1)
-source "$WS/install/setup.bash"
+set +u; source "$WS/install/setup.bash"; set -u   # setup.bash は未定義変数を参照する
 export DISPLAY=${DISPLAY:-:0}
 
 nohup ros2 launch pai_task_env task_env.launch.py > /tmp/task_env.log 2>&1 &

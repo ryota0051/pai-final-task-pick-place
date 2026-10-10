@@ -2,7 +2,8 @@ import csv
 
 import pytest
 
-from pai_task_env.evaluation import TrialResult, summarize, wilson_interval, write_csv
+from pai_task_env.evaluation import (
+    SettleDetector, TrialResult, parse_positions, summarize, wilson_interval, write_csv)
 
 
 def test_wilson_interval_known_values():
@@ -46,3 +47,32 @@ def test_write_csv(tmp_path):
     assert len(rows) == 2
     assert rows[0]['success'] == 'True'
     assert set(rows[0]) == {'trial', 'success', 'lifted', 'duration', 'object_x', 'object_y'}
+
+
+def test_parse_positions_pairs_flat_list():
+    assert parse_positions([0.1, -0.01, 0.12, 0.02]) == [(0.1, -0.01), (0.12, 0.02)]
+
+
+def test_parse_positions_empty_and_odd():
+    assert parse_positions([]) == []
+    with pytest.raises(ValueError):
+        parse_positions([0.1, 0.2, 0.3])
+
+
+def test_settle_detector_requires_full_window_of_small_motion():
+    d = SettleDetector(window=0.5, tolerance=0.01)
+    assert not d.settled
+    d.update(0.0, [0.0, 0.0])
+    d.update(0.3, [0.005, 0.0])
+    assert not d.settled          # 窓の長さぶんの履歴がまだない
+    d.update(0.6, [0.008, 0.0])
+    assert d.settled
+
+
+def test_settle_detector_moving_joint_is_not_settled():
+    d = SettleDetector(window=0.5, tolerance=0.01)
+    for i in range(20):
+        d.update(i * 0.05, [-1.5 + 0.1 * i, 0.0])
+    assert not d.settled
+    d.reset()
+    assert not d.settled
