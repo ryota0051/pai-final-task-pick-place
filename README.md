@@ -1,7 +1,7 @@
 # CRANE+ V2 把持・配置タスクの模倣学習（Physical AI 2026 最終課題）
 
 テーブル上の**ランダムな位置にある物体を掴み、所定の位置に置く**タスクを、Gazebo 上の CRANE+ V2 と模倣学習（ACT）で解きます。
-主催団体が例として公開している実践例「ROS 2入門(2/2) 実践演習」（以下、参考例。関節キーボードでテレオペ → rosbag → LeRobotDataset → ACT → Gazebo で自律実行）をベースに、
+最終作品サンプルの[「知能ロボットシステムエンジニアリング 第5回 ROS 2入門（2/2）」](https://skinny-chord-c58.notion.site/5-ROS-2-2-2-2049a7a1061380fc8928e500eafc57d0)（以下、サンプル。関節キーボードでテレオペ → rosbag → LeRobotDataset → ACT → Gazebo で自律実行）をベースに、
 操作・観測・評価の各段階を改良しました。
 
 ## 結果
@@ -9,7 +9,7 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 
 | モデル | 物体位置の入力 | ホームから開始 | 開始姿勢を ±3cm ずらす |
 |---|---|---|---|
-| ベースライン（参考例と同じ観測） | なし（関節角のみ） | 10%（20 試行） | - |
+| ベースライン（サンプルと同じ観測） | なし（関節角のみ） | 10%（20 試行） | - |
 | 改良版（固定開始のデモのみ） | 真値 | 100%（30/30） | 30%（9/30） |
 | **最終版（開始姿勢をばらつかせたデモを追加）** | 真値 | **100%**（30/30） | **100%**（30/30） |
 | **最終版** | **俯瞰カメラから推定** | **100%**（30/30） | **97%**（29/30） |
@@ -17,8 +17,8 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 詳細な実験記録（学習量・データ量・temporal ensembling・観測劣化への頑健性・失敗原因の分析・開始姿勢への頑健性）は
 [docs/design/training_eval/training_eval.md](docs/design/training_eval/training_eval.md) を参照してください。
 
-## 参考例からの主な改良
-| 参考例の弱点 | 改良 |
+## サンプルからの主な改良
+| サンプルの弱点 | 改良 |
 |---|---|
 | 関節空間のキーボード操作が直感的でない | ブラウザ UI（rosbridge）で手先の xyz・pitch を操作し、解析的逆運動学で関節角に変換。動作確認・方策の ON/OFF にも使用 |
 | デモを人手で集めるため、条件を揃えた比較実験がしにくい | 物体位置から IK で軌道を計画する**スクリプトデモ**で学習データを自動生成（速度・経由高さ・把持位置・**開始姿勢**にばらつきを付与、seed で再現可能）。テレオペと同じ経路（手先指令 → IK → 関節指令）で収録 |
@@ -57,7 +57,7 @@ flowchart TD
 | [ros2_ws/src/crane_plus_kinematics](ros2_ws/src/crane_plus_kinematics) | CRANE+ V2 の順運動学・解析的逆運動学（ROS 非依存） |
 | [ros2_ws/src/pai_web_teleop](ros2_ws/src/pai_web_teleop) | ブラウザ手先テレオペ・録画・方策の ON/OFF |
 | [ros2_ws/src/pai_task_env](ros2_ws/src/pai_task_env) | タスク環境（world・ランダム配置・成功判定・把持アシスト・カメラ検出・スクリプトデモ・評価） |
-| [external/pai_training](https://github.com/ryota0051/pai_training/tree/feature/pick-place) | 参考例の学習リポジトリの fork（submodule）。変換・学習・推論・解析 |
+| [external/pai_training](https://github.com/ryota0051/pai_training/tree/feature/pick-place) | サンプルの学習リポジトリの fork（submodule）。変換・学習・推論・解析 |
 | [docker](docker) | 開発用 Docker（GPU）環境 |
 | [scripts/sim](scripts/sim) | シミュレーション起動・評価スクリプト |
 | [docs](docs) | 設計書（[docs/design](docs/design/index.md)）、設計判断（[docs/decision](docs/decision/index.md)）、作業ログ |
@@ -115,4 +115,4 @@ cd ~/pai_training && pixi run --frozen test
 - 学習データはスクリプトデモのみです。人手テレオペのデモでの学習・人手デモとの混合は未検証です（検証中）。
 - 俯瞰カメラでの物体位置推定は赤色のしきい値処理と重心計算による簡易なもので、シミュレーション（赤い物体・一定の照明・既知のカメラ位置）を前提にしています。
 - 学習データ・学習済みモデル（`data/`）は容量が大きいためリポジトリに含めていません。上記の手順で生成できます。
-- ベースイメージは参考例で使われているイメージ（`airobotbook/ros2-desktop-ai-robot-book-humble`）、学習は参考例の [pai_training](https://github.com/matsuolab/pai_training) を fork して拡張しています。
+- ベースイメージはサンプルで使われているイメージ（`airobotbook/ros2-desktop-ai-robot-book-humble`）、学習はサンプルの [pai_training](https://github.com/matsuolab/pai_training) を fork して拡張しています。
