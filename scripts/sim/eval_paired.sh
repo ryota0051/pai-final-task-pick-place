@@ -9,7 +9,8 @@ for c in "$@"; do
   label=${c%%:*}; cfg=${c#*:}
   pkill -f scripts/infer.py; sleep 2
   (cd ~/pai_training && nohup pixi run --frozen infer --config "$cfg" > /tmp/infer_$label.log 2>&1 &)
-  sleep 25
+    # 推論ノードの起動を待つ（固定時間だと GPU を他と共有しているときに間に合わないことがある）
+  for _ in $(seq 1 60); do ros2 service list 2>/dev/null | grep -q /policy/enable && break; sleep 2; done
   ros2 run pai_task_env policy_evaluator --ros-args --params-file "$EVAL_CFG" \
     -p trials:=$TRIALS -p label:=$label -p positions_seed:=$SEED -p observe.enabled:=true ${EVAL_ARGS:-} 2>&1 \
     | grep -E "summary" | sed "s/.*summary: //"

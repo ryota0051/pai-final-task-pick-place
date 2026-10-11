@@ -12,7 +12,8 @@ TOPICS="/joint_states /task/object_pose /task/status /policy/status \
 
 pkill -f scripts/infer.py; sleep 2
 (cd ~/pai_training && nohup pixi run --frozen infer --config "$CFG" > /tmp/infer_$LABEL.log 2>&1 &)
-sleep 25
+# 推論ノードの起動を待つ（固定時間だと GPU を他と共有しているときに間に合わないことがある）
+for _ in $(seq 1 60); do ros2 service list 2>/dev/null | grep -q /policy/enable && break; sleep 2; done
 rm -rf "$BAG_DIR"; mkdir -p "$(dirname "$BAG_DIR")"
 ros2 bag record -o "$BAG_DIR" $TOPICS > /tmp/bag_$LABEL.log 2>&1 &
 BAG_PID=$!

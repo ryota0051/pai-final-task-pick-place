@@ -14,7 +14,7 @@ report_img_dir: ~/final_task/docs/report/img
 # Gazebo GUI（ウィンドウ最大化）の 3D ビューを ffmpeg の x11grab で録画する（ツールバー・パネルを避けた範囲）
 capture:
   display: ":0"
-  region: [330, 168, 1170, 658]     # x, y, 幅, 高さ（1745x828 の画面で Gazebo を最大化した場合）
+  region: [100, 165, 1400, 788]     # x, y, 幅, 高さ（1920x1080 の画面で Gazebo を最大化した場合。画面サイズが変わったら調整する）
   framerate: 20
   view: [0.22, 0.14, 1.17, 0.06, -0.05, 1.04]   # GUI の視点（scripts/sim/gui_view.sh の引数）
 
@@ -45,9 +45,22 @@ clips:
     positions: [0.13, -0.01]
     args: ['-p', 'start.offset:=[0.003,0.003,0.015]', '-p', 'start.offset_seed:=11']
 
+  dr_red:                   # 見た目をランダム化したシーン（青い物体＋赤い箱, seed 22670）で赤色検出
+    kind: eval
+    infer_config: configs/pick/infer_objpos_startrand_camera.yaml
+    positions: [0.12, 0.03]
+    overhead: true            # GUI はランダム化した照明で暗く映るため、俯瞰カメラ（検出器の入力）の映像を使う
+    args: ['-p', 'observe.enabled:=true', '-p', 'scene_randomization.enabled:=true', '-p', 'scene_randomization.seed:=22670']
+  dr_learned:               # 同じシーンで学習した検出器（detect_rtdetr_parallel.yaml の検出ノードを別途起動しておく）
+    kind: eval
+    infer_config: configs/pick/infer_objpos_startrand_learned.yaml
+    positions: [0.12, 0.03]
+    overhead: true            # GUI はランダム化した照明で暗く映るため、俯瞰カメラ（検出器の入力）の映像を使う
+    args: ['-p', 'observe.enabled:=true', '-p', 'scene_randomization.enabled:=true', '-p', 'scene_randomization.seed:=22670']
+
 # ---- タイムライン ----
 # card: 文字だけの画面 / image: 画像＋字幕 / clip: 素材の切り出し（trials: 何試行目か。方策 ON の 0.5 秒前から成功の 1 秒後まで）
-# speed: 再生速度（2 なら 2 倍速。字幕に倍速表示を付ける）
+# speed: 再生速度（2 なら 2 倍速。字幕に倍速表示を付ける）。tail: 成功の何秒後まで使うか（既定 1。評価後にシーンが元に戻る場面は短く）
 timeline:
   - {type: card, duration: 4, title: "CRANE+ V2 による把持・配置タスクの模倣学習", subtitle: "Physical AI 最終課題 ／ ryokoe1010"}
   - {type: clip, clip: final_camera, trials: [0], speed: 1, caption: "タスク: 机の上のランダムな位置にある物体を掴み、青い置き場所へ運ぶ（Gazebo）"}
@@ -58,5 +71,7 @@ timeline:
   - {type: image, image: overhead_camera.png, duration: 4, caption: "物体位置は真値を使わず、俯瞰カメラの画像から推定（誤差 1〜2mm）"}
   - {type: clip, clip: final_camera, trials: [1, 2, 3], speed: 2, caption: "自律実行（物体位置は俯瞰カメラで推定）"}
   - {type: compare, left: start_old, right: start_new, trials: [0], speed: 2, max_seconds: 14, left_label: "固定開始のデモだけで学習", right_label: "開始姿勢をばらつかせたデモを追加", crop: [0.12, 0.22, 0.62, 0.62], caption: "開始姿勢が上に約 1cm ずれると、従来モデルは空中でグリッパを閉じて物体を掴まずに置き場所へ向かう → 開始姿勢をばらつかせたデモの追加で解消"}
+  - {type: image, image: detector_examples.png, duration: 5, caption: "物体の色・照明・机・ダミーの箱を変えた画像で物体検出器（RT-DETRv2）を学習（黄枠: 検出結果。赤×: 赤色検出は赤い物体しか見つけられない）"}
+  - {type: compare, left: dr_red_overhead, right: dr_learned_overhead, trials: [0], speed: 2, max_seconds: 14, panel_height: 480, tail: 0.2, left_label: "赤色検出", right_label: "学習した物体検出器", caption: "俯瞰カメラの映像（検出器への入力）: 赤色検出は青い物体を見つけられず掴めない。学習した検出器は掴める（見た目を変えた 30 試行で 3% → 100%）"}
   - {type: image, image: fig_start_robustness.png, duration: 6, caption: "物体配置を固定した 30 試行で評価: 開始姿勢を ±3cm ずらしても 100%（カメラ推定でも 97%）"}
-  - {type: card, duration: 6, title: "まとめ", lines: ["成功率 10%（サンプル）→ 100%（物体位置は真値・カメラ推定とも）", "評価で弱点を見つけ、記録から原因を突き止めて改善", "コード: github.com/ryota0051/pai-final-task-pick-place"]}
+  - {type: card, duration: 6, title: "まとめ", lines: ["成功率 10%（サンプル）→ 100%（物体位置は真値・カメラ推定とも）", "評価で弱点を見つけ、記録から原因を突き止めて改善", "物体の色・照明が変わっても学習した物体検出器で成功（3% → 100%）", "コード: github.com/ryota0051/pai-final-task-pick-place"]}

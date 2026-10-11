@@ -56,11 +56,13 @@
 | シーン | 物体位置の推定 | 成功率 | 95% CI |
 |---|---|---|---|
 | ランダム化 | **学習した検出器** | **30/30 = 100%** | 89–100% |
-| ランダム化 | 赤色検出 | 3/30 = 10% | 3–26% |
+| ランダム化 | 赤色検出 | 1/30 = 3% | 1–17% |
 | 元のシーン（赤い物体） | 学習した検出器 | 30/30 = 100% | 89–100% |
 | 元のシーン（赤い物体） | 赤色検出（実験9） | 30/30 = 100% | 89–100% |
 
 - 学習した検出器は、見た目が変わっても元のシーンと同じ成功率を保った。赤色検出は物体が赤系でないと検出できず、ほぼ失敗する
+- 評価手順の修正（2026-10-11）: 当初は「物体を置き直す → 見た目を変える」の順で、変わるまでの間に赤色検出が赤い物体を見て推定値を保持していた
+  （赤色検出 3/30 は甘い結果）。配置が分かる場合は見た目を先に変えるよう `policy_evaluator` を直し、両方を測り直した（上の表は修正後。学習した検出器は修正前も 30/30）
 - 方策（ACT）は再学習していない。物体位置の推定を差し替えるだけで頑健性が上がった
 
 起動手順:
@@ -68,6 +70,8 @@
 TASK_ENV_ARGS="red_detector:=false" ~/final_task/scripts/sim/start_stack.sh
 cd ~/pai_training && pixi run --frozen detect-node --config configs/detection/detect_rtdetr.yaml &
 EVAL_ARGS="-p scene_randomization.enabled:=true" bash ~/final_task/scripts/sim/eval_paired.sh 0 30 dr_learned:configs/pick/infer_objpos_startrand_camera.yaml
+# 赤色検出と同時に動かして比べる場合: 検出ノードを detect_rtdetr_parallel.yaml（/task/object_pose_learned）で起動し、
+# 推論は infer_objpos_startrand_learned.yaml を使う（タスク環境は red_detector:=true のまま）
 ```
 
 ## 限界

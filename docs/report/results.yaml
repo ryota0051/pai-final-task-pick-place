@@ -36,5 +36,5 @@ detector_policy:
   legend_loc: center
   conditions: ["元のシーン\n（赤い物体）", "ランダム化したシーン\n（色・照明・机・箱）"]
   series:
-    - {label: "赤色検出", successes: [30, 3], trials: 30}
+    - {label: "赤色検出", successes: [30, 1], trials: 30}
     - {label: "学習した検出器（RT-DETRv2）", successes: [30, 30], trials: 30}

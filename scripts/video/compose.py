@@ -102,8 +102,8 @@ class Composer:
         return p
 
     # ---- 素材の切り出し ----
-    def trial_windows(self, clip, trials):
-        """events.csv から試行ごとの [方策 ON の 0.5 秒前, 成功の 1 秒後（なければ OFF）] を返す."""
+    def trial_windows(self, clip, trials, tail=1.0):
+        """events.csv から試行ごとの [方策 ON の 0.5 秒前, 成功の tail 秒後（なければ OFF）] を返す."""
         rows = list(csv.DictReader(open(self.media / f'{clip}.mp4.events.csv')))
         ons = [i for i, r in enumerate(rows) if r['event'] == 'policy_on']
         out = []
@@ -113,7 +113,7 @@ class Composer:
             end = None
             for r in rows[i + 1:]:
                 if r['event'] == 'success':
-                    end = float(r['time']) + 1.0
+                    end = float(r['time']) + tail
                     break
                 if r['event'] == 'policy_off':
                     end = float(r['time'])
@@ -152,16 +152,19 @@ class Composer:
                      *self.encode_opts(), str(out)])
         return out
 
-    def compare(self, left, right, window_l, window_r, speed, max_seconds, overlay, crop=None):
+    def compare(self, left, right, window_l, window_r, speed, max_seconds, overlay, crop=None, panel_height=None):
         out = self.segment_out()
-        hw, hh = self.W // 2, self.H // 2
+        hw, hh = self.W // 2, panel_height or self.H // 2   # 左右それぞれの映像の大きさ
 
         def part(idx, w):
             s, e = w
             trim = f'trim=start={s}' + (f':end={e}' if e is not None else '')
             # crop: 素材のうち使う範囲 [x, y, 幅, 高さ]（素材サイズに対する割合）。ロボット周辺を拡大する
             cr = f'crop=iw*{crop[2]}:ih*{crop[3]}:iw*{crop[0]}:ih*{crop[1]},' if crop else ''
-            return f'[{idx}:v]{trim},setpts=(PTS-STARTPTS)/{speed},fps={self.fps},{cr}scale={hw}:{hh}[p{idx}]'
+            # 縦横比を保って縮小し、余白で {hw}x{hh} にそろえる（俯瞰カメラの 4:3 の映像も歪めない）
+            return (f'[{idx}:v]{trim},setpts=(PTS-STARTPTS)/{speed},fps={self.fps},{cr}'
+                    f'scale={hw}:{hh}:force_original_aspect_ratio=decrease,'
+                    f'pad={hw}:{hh}:(ow-iw)/2:(oh-ih)/2:color=0x101622[p{idx}]')
 
         dur = f',trim=end={max_seconds}' if max_seconds else ''
         filt = (f'{part(0, window_l)};{part(1, window_r)};'
@@ -197,9 +200,10 @@ class Composer:
                                        self.label_layer([item['left_label'], item['right_label']]))
                 k = item['trials'][0]
                 segs.append(self.compare(item['left'], item['right'],
-                                         self.trial_windows(item['left'], [k])[0],
-                                         self.trial_windows(item['right'], [k])[0],
-                                         speed, item.get('max_seconds'), overlay, item.get('crop')))
+                                         self.trial_windows(item['left'], [k], item.get('tail', 1.0))[0],
+                                         self.trial_windows(item['right'], [k], item.get('tail', 1.0))[0],
+                                         speed, item.get('max_seconds'), overlay, item.get('crop'),
+                                         item.get('panel_height')))
             else:
                 raise ValueError(f'unknown timeline type: {t}')
         lst = self.work / 'list.txt'
