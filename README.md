@@ -84,7 +84,8 @@ cd ~/pai_training && pixi install                    # 初回のみ
   cd ~/final_task/ros2_ws
   ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
   # 開始姿勢をばらつかせる（録画先を分けるため、スタックは recorder_startrand.yaml で起動: docs/design/task_env を参照）
-  ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=125 -p seed:=1 \n    -p "randomize.start_offset:=[0.03,0.03,0.02]"
+  ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=125 -p seed:=1 \
+    -p "randomize.start_offset:=[0.03,0.03,0.02]"
   ```
 - 人のテレオペ（ブラウザ UI）: 「タスクリセット」→「録画開始」→ 物体を掴んで置き場所へ →「録画停止」
 
