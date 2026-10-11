@@ -108,7 +108,7 @@ pixi run --frozen train --config configs/pick/train_objpos_startrand.yaml       
 pixi run --frozen infer --config configs/pick/infer_objpos_startrand.yaml                      # 推論ノード（物体位置は真値）
 pixi run --frozen infer --config configs/pick/infer_objpos_startrand_camera.yaml               # 推論ノード（俯瞰カメラで推定した物体位置）
 ```
-推論ノードの起動後、テレオペ UI（http://localhost:8080）で「タスクリセット」→ 腕が止まったら「方策 ON」で自律実行します（手順と注意点は [docs/design/web_teleop/web_teleop.md](docs/design/web_teleop/web_teleop.md#ブラウザ-ui-で学習済みモデルを動かす自律実行)）。
+推論ノードの起動後、テレオペ UI（<http://localhost:8080>）で「タスクリセット」→ 腕が止まったら「方策 ON」で自律実行します（手順と注意点は [docs/design/web_teleop/web_teleop.md](docs/design/web_teleop/web_teleop.md#ブラウザ-ui-で学習済みモデルを動かす自律実行)）。
 
 自動評価（物体配置を固定して真値 / カメラ推定を比較）:
 ```bash
