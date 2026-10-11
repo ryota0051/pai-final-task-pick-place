@@ -1,0 +1,7 @@
+episode_timer:
+  ros__parameters:
+    use_sim_time: true
+    label: teleop                 # 出力ファイル名（browser / keyboard など操作方式ごとに分ける）
+    output_dir: ~/dataset/teleop_time
+    motion_threshold: 0.02        # リセット時の姿勢からこれ以上動いたら操作開始とみなす [rad]
+    joints: [crane_plus_joint1, crane_plus_joint2, crane_plus_joint3, crane_plus_joint4]
