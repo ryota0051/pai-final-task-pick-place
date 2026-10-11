@@ -44,6 +44,17 @@ class PlanParams:
         )
 
 
+def random_start_offset(rng: random.Random, max_xyz: Sequence[float]) -> Tuple[float, float, float]:
+    """デモの開始姿勢（ホーム手先位置からのずれ）を各軸 ±max の一様分布で決める.
+
+    方策が「静止したホーム姿勢から始まる」ことに依存しないよう、開始姿勢にばらつきを与える（実験8）。
+    全軸 0 なら乱数を消費しない（既存設定での seed の再現性を保つ）。
+    """
+    if not any(m > 0 for m in max_xyz):
+        return (0.0, 0.0, 0.0)
+    return tuple(rng.uniform(-m, m) for m in max_xyz)
+
+
 def _min_jerk(s: float) -> float:
     return 10 * s ** 3 - 15 * s ** 4 + 6 * s ** 5
 

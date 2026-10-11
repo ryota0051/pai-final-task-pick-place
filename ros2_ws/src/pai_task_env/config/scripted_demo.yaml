@@ -24,3 +24,5 @@ scripted_demo:
       speed_scale: [0.8, 1.2]
       height_jitter: 0.01       # 経由高さの揺らぎ [m]
       xy_noise: 0.003           # 把持・配置位置の揺らぎ [m]
+      start_offset: [0.0, 0.0, 0.0]   # 開始姿勢（ホーム手先位置）の各軸の最大ずれ [m]。実験8 の対策では [0.03, 0.03, 0.02]
+      start_move_time: 1.5      # ずらした開始姿勢への移動時間 [s]（収録前）

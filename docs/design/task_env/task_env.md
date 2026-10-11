@@ -70,10 +70,14 @@ x/y 範囲から一様サンプルし、水平半径範囲 `r`（真下向き把
 `/teleop/home` → `/task/reset` → `/recorder/start` → 計画実行 → `/recorder/stop` →（失敗なら `/recorder/discard_last`）。
 - 計画（`scripted_policy.PickPlacePlan`）: start → approach → descend → grasp → lift → carry → lower → release → retreat。位置は min-jerk 補間、区間時間は距離/速度（下限あり）
 - 多様性: 速度倍率・経由高さ・把持/配置位置にランダムな揺らぎ（`randomize`）
+- 開始姿勢のばらつき（`randomize.start_offset`, 既定 0 で無効）: ホーム後・収録前に手先を各軸 ±offset の一様乱数だけずらして止め、そこから計画する。
+  方策が静止したホーム姿勢からの開始に依存する問題（training_eval の実験8）への対策。ずらした分の移動は収録しない
 - テレオペと同じ `/teleop/ee_target`・`/teleop/gripper` を 20Hz で publish するので、収録されるトピックは人のテレオペと同一
 
 ```bash
 ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
+# 開始姿勢をばらつかせたデモ（録画先を分けるため、スタックは recorder_startrand.yaml で起動しておく）
+ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=125 -p seed:=1   -p "randomize.start_offset:=[0.03,0.03,0.02]"
 ```
 
 ## 動作確認（2026-10-10）

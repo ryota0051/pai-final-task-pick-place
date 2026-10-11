@@ -3,7 +3,7 @@ import random
 
 import pytest
 
-from pai_task_env.scripted_policy import PickPlacePlan, PlanParams, Waypoint
+from pai_task_env.scripted_policy import PickPlacePlan, PlanParams, Waypoint, random_start_offset
 
 
 @pytest.fixture
@@ -78,3 +78,20 @@ def test_randomized_params_within_bounds(params):
 def test_waypoint_is_dataclass():
     w = Waypoint('x', 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
     assert w.phase == 'x'
+
+
+def test_random_start_offset_bounded_and_reproducible():
+    a = [random_start_offset(random.Random(5), (0.03, 0.03, 0.02)) for _ in range(3)]
+    b = [random_start_offset(random.Random(5), (0.03, 0.03, 0.02)) for _ in range(3)]
+    assert a == b
+    rng = random.Random(0)
+    for _ in range(100):
+        dx, dy, dz = random_start_offset(rng, (0.03, 0.03, 0.02))
+        assert abs(dx) <= 0.03 and abs(dy) <= 0.03 and abs(dz) <= 0.02
+
+
+def test_random_start_offset_zero_does_not_consume_rng():
+    rng = random.Random(1)
+    assert random_start_offset(rng, (0.0, 0.0, 0.0)) == (0.0, 0.0, 0.0)
+    # ばらつきなしの設定では既存のデモ生成と乱数列が変わらない（seed の再現性を保つ）
+    assert rng.random() == random.Random(1).random()

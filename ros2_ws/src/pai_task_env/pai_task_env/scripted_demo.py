@@ -19,7 +19,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64, String
 from std_srvs.srv import Trigger
 
-from pai_task_env.scripted_policy import PickPlacePlan, PlanParams
+from pai_task_env.scripted_policy import PickPlacePlan, PlanParams, Waypoint, random_start_offset
 
 
 class ScriptedDemo(Node):
@@ -47,6 +47,9 @@ class ScriptedDemo(Node):
         self.speed_scale = tuple(p('randomize.speed_scale', [0.8, 1.2]).value)
         self.height_jitter = p('randomize.height_jitter', 0.01).value
         self.xy_noise = p('randomize.xy_noise', 0.003).value
+        # 開始姿勢のばらつき: ホームから各軸 ±start_offset だけ手先をずらしてから収録を始める（実験8 の対策）
+        self.start_offset = list(p('randomize.start_offset', [0.0, 0.0, 0.0]).value)
+        self.start_move_time = p('randomize.start_move_time', 1.5).value
         self.verbose = p('verbose', False).value
 
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
@@ -89,6 +92,19 @@ class ScriptedDemo(Node):
         self.target_pub.publish(m)
         self.gripper_pub.publish(Float64(data=float(w.gripper)))
 
+    def move_to_start(self):
+        """ホーム手先位置から開始姿勢のオフセットだけ移動して止まる（オフセットなしなら何もしない）."""
+        dx, dy, dz = random_start_offset(self.rng, self.start_offset)
+        if (dx, dy, dz) == (0.0, 0.0, 0.0):
+            return
+        home = self.latest['ee'].pose.position
+        w = Waypoint('start', home.x + dx, home.y + dy, home.z + dz, self.base_params.pitch, 0.0, 0.0)
+        end = time.monotonic() + self.start_move_time
+        while time.monotonic() < end:
+            self.publish(w)
+            self.spin_for(1.0 / self.rate)
+        self.spin_for(self.settle_time)
+
     def run_episode(self, idx: int) -> bool:
         self.call('/teleop/home')
         self.spin_for(self.settle_time)
@@ -99,6 +115,7 @@ class ScriptedDemo(Node):
         if 'obj' not in self.latest or 'ee' not in self.latest or 'place' not in self.latest:
             self.get_logger().error('object / ee / place pose not received')
             return False
+        self.move_to_start()
         o = self.latest['obj'].pose.position
         pl = self.latest['place'].pose.position
         ee = self.latest['ee'].pose.position
