@@ -29,3 +29,12 @@ object_corruption:
     - {label: "一定ずれ\nσ=5mm", successes: 19, trials: 20}
     - {label: "一定ずれ\nσ=10mm", successes: 13, trials: 20}
     - {label: "一定ずれ\nσ=20mm", successes: 8, trials: 20}
+
+# 図7: 学習した物体検出器（見た目をランダム化したシーン, 配置固定 30 試行。docs/design/perception/detector.md）
+detector_policy:
+  title: "見た目をランダム化したシーンでの成功率（配置固定 30 試行）"
+  legend_loc: center
+  conditions: ["元のシーン\n（赤い物体）", "ランダム化したシーン\n（色・照明・机・箱）"]
+  series:
+    - {label: "赤色検出", successes: [30, 3], trials: 30}
+    - {label: "学習した検出器（RT-DETRv2）", successes: [30, 30], trials: 30}

@@ -67,7 +67,7 @@ def grouped(cfg, path):
         for xi, r, h in zip(xs, rates, err[1]):
             ax.text(xi, r + h + 2, f'{r:.0f}', ha='center', fontsize=8)
     ax.set_xticks(x, conds, fontsize=8.5)
-    ax.legend(fontsize=8, loc='lower left')
+    ax.legend(fontsize=8, loc=cfg.get('legend_loc', 'lower left'))
     _finish(ax, cfg['title'], path)
 
 
@@ -79,6 +79,7 @@ def main():
     bars(cfg['improvements'], out / 'fig_improvements.png', COLORS[1])
     grouped(cfg['start_robustness'], out / 'fig_start_robustness.png')
     bars(cfg['object_corruption'], out / 'fig_object_corruption.png', COLORS[1])
+    grouped(cfg['detector_policy'], out / 'fig_detector_policy.png')
 
 
 if __name__ == '__main__':
