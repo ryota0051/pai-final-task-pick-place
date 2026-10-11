@@ -1,0 +1,24 @@
+@page { size: A4; margin: 14mm 15mm; }
+body { font-family: "Yu Gothic", "YuGothic", "Meiryo", "Noto Sans CJK JP", sans-serif; font-size: 9.6pt; line-height: 1.6; color: #1f2328; }
+h1 { font-size: 17pt; margin: 0 0 4px; border-bottom: 2px solid #2a6fdb; padding-bottom: 4px; }
+h2 { font-size: 12.5pt; margin: 14px 0 6px; color: #1b4fa3; border-left: 4px solid #2a6fdb; padding-left: 6px; }
+h3 { font-size: 10.5pt; margin: 10px 0 3px; }
+p { margin: 3px 0 6px; }
+.meta { color: #555; font-size: 8.8pt; margin-bottom: 8px; }
+.note { color: #555; font-size: 8.3pt; }
+table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 8.8pt; }
+th, td { border: 1px solid #c9d1d9; padding: 3px 6px; }
+th { background: #eef3fb; }
+figure { margin: 6px auto; text-align: center; break-inside: avoid; }
+figure img { max-width: 100%; }
+figcaption { font-size: 8.2pt; color: #555; margin-top: 2px; }
+.row { display: flex; gap: 10px; align-items: flex-end; justify-content: center; }
+.row figure { flex: 1; }
+img.w90 { width: 90%; } img.w80 { width: 80%; } img.w70 { width: 70%; } img.w60 { width: 60%; }
+h2, h3 { break-after: avoid; }
+.flow { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 8px 0; break-inside: avoid; }
+.flow .box { border: 1.5px solid #2a6fdb; border-radius: 6px; padding: 5px 8px; text-align: center; font-weight: bold; font-size: 9pt; background: #f4f8fe; }
+.flow .box small { font-weight: normal; font-size: 7.8pt; color: #444; }
+.flow .arrow { font-size: 14pt; color: #2a6fdb; }
+ul { margin: 3px 0 6px; padding-left: 20px; }
+ol { margin: 3px 0 6px; padding-left: 20px; }

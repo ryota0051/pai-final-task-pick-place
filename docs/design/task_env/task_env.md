@@ -110,3 +110,14 @@ ros2 run pai_task_env episode_timer --ros-args --params-file ~/final_task/ros2_w
   `~/dataset/teleop_time/<label>.csv`（label, episode, idle, duration）に追記する
 - 関節キーボード（`ros2 run physicalai_teleop teleop_keyboard`）で計測するときは、ブラウザ側のテレオペを無効にする
   （`ee_teleop_node` は有効な間ずっと指令を出し続けるため）: `ros2 service call /teleop/enable std_srvs/srv/SetBool "{data: false}"`
+
+## 撮影用カメラ（動画・レポート素材用）
+実験には使わない撮影専用のカメラ（`models/presentation_camera.sdf`, 1280×720, 20Hz）を、撮影時だけ Gazebo のサービスで world に追加する。
+GUI 画面のキャプチャと違い、構図が再現でき、画面上の表示物に左右されない。
+```bash
+bash ~/final_task/scripts/sim/presentation_camera.sh add [x y z 注視x 注視y 注視z]   # world 座標。既定は斜め前方から全体を写す
+ros2 run pai_task_env frame_recorder --ros-args -p output:=~/dataset/media/scene.png -p snapshot:=true   # 静止画
+ros2 run pai_task_env frame_recorder --ros-args -p output:=~/dataset/media/run.mp4 -p duration:=20.0     # 動画
+bash ~/final_task/scripts/sim/presentation_camera.sh remove
+```
+- 画像は `/task/presentation/image`（ros_gz_bridge で中継）。動画は `FrameRateLimiter`（`pai_task_env/frame_recorder.py`）で目標 fps に間引いて書き出す

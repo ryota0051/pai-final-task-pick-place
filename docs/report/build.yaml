@@ -1,0 +1,11 @@
+# レポート PDF のビルド設定（scripts/report/build_report.py）
+source: report.md
+style: style.css
+html: build/report.html                         # 中間ファイル（git 管理外）
+pdf: build/説明資料_PAI最終課題_ryokoe1010.pdf     # 提出用（ファイル名は課題の指定どおり）
+title: "説明資料_PAI最終課題_ryokoe1010"
+chrome_candidates:                               # PDF 印刷に使うブラウザ（最初に見つかったもの）
+  - "C:/Program Files/Google/Chrome/Application/chrome.exe"
+  - "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+  - "/usr/bin/google-chrome"
+  - "/usr/bin/chromium"
