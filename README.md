@@ -27,11 +27,35 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 | 行動チャンクの先頭だけを実行 | ACT の temporal ensembling で実行時の誤差の蓄積を抑制（成功率 55% → 100%） |
 
 ## 構成
-```
-[ブラウザ UI] --rosbridge--> ee_teleop_node --IK--> joint_trajectory --> Gazebo (CRANE+ V2, 机, 物体, 置き場所, 俯瞰カメラ)
-                              recorder_node --> rosbag（エピソードごと）
-pai_task_env : 物体のランダム配置 / 成功判定 / 把持アシスト / スクリプトデモ / カメラでの物体検出 / 方策評価
-pai_training : rosbag → LeRobotDataset（物体位置付き）→ ACT 学習（GPU）→ 推論ノード（rerun 可視化）
+```mermaid
+flowchart LR
+  subgraph collect["デモ収集"]
+    UI["ブラウザ UI<br>手先 xyz・pitch"] -- rosbridge --> TELEOP["ee_teleop_node<br>解析 IK"]
+    DEMO["scripted_demo<br>IK で軌道計画"]
+  end
+  subgraph sim["Gazebo"]
+    ROBOT["CRANE+ V2・机<br>物体・置き場所"]
+    CAM["俯瞰カメラ"]
+  end
+  subgraph task["pai_task_env"]
+    MGR["task_manager_node<br>ランダム配置・成功判定<br>把持アシスト"]
+    DET["object_detector_node<br>物体位置の推定"]
+    EVAL["policy_evaluator<br>自動評価"]
+  end
+  subgraph learn["pai_training"]
+    BAG[("rosbag")] --> CONV["LeRobotDataset<br>関節角＋物体位置"] --> TRAIN["ACT 学習<br>GPU"]
+    TRAIN --> INFER["推論ノード<br>temporal ensembling"]
+    INFER --> RERUN["rerun<br>可視化"]
+  end
+  TELEOP -- 関節指令 --> ROBOT
+  DEMO -- 関節指令 --> ROBOT
+  TELEOP -. 録画 .-> BAG
+  DEMO -. 録画 .-> BAG
+  ROBOT -- 関節角 --> INFER
+  MGR -- 物体位置（真値） --> INFER
+  CAM --> DET -- 物体位置（推定） --> INFER
+  INFER -- 関節指令 --> ROBOT
+  EVAL -. 開始・判定 .-> INFER
 ```
 
 | ディレクトリ | 内容 |
