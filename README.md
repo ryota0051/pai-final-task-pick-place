@@ -19,7 +19,8 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 ## 演習からの主な改良
 | 演習の弱点 | 改良 |
 |---|---|
-| 関節空間のキーボード操作が直感的でない | ブラウザ UI（rosbridge）で手先の xyz・pitch を操作し、解析的逆運動学で関節角に変換 |
+| 関節空間のキーボード操作が直感的でない | ブラウザ UI（rosbridge）で手先の xyz・pitch を操作し、解析的逆運動学で関節角に変換。動作確認・方策の ON/OFF にも使用 |
+| デモを人手で集めるため、条件を揃えた比較実験がしにくい | 物体位置から IK で軌道を計画する**スクリプトデモ**で学習データを自動生成（速度・経由高さ・把持位置にばらつきを付与、seed で再現可能）。テレオペと同じ経路（手先指令 → IK → 関節指令）で収録 |
 | 毎回同じ動作で、観測が関節角のみ | 物体位置をエピソードごとにランダム化し、観測に物体位置を追加 |
 | 物体位置が既知の前提 | 俯瞰カメラの画像から物体位置を推定し、真値なしで自律実行 |
 | 学習・推論が CPU 前提 | Docker に GPU を渡して学習・推論（RTX 4090 で約 50ms/step、60k step で約 1 時間） |
@@ -29,13 +30,14 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 ## 構成
 ```mermaid
 flowchart TD
-  DEMO["① デモ収集<br>ブラウザ UI のテレオペ（手先操作＋解析 IK）<br>またはスクリプトデモ"]
+  DEMO["① デモ生成<br>スクリプトデモ × 117 エピソード<br>（IK で軌道計画・ばらつき付与）"]
+  UI["ブラウザ UI<br>手先テレオペ・可視化・方策 ON/OFF"]
   DATA["② データセット化<br>rosbag → LeRobotDataset<br>観測: 関節角＋物体位置"]
   TRAIN["③ ACT 学習（GPU）"]
   INFER["④ 推論ノード<br>temporal ensembling"]
   SIM["Gazebo<br>CRANE+ V2・物体・置き場所"]
   OBJ["物体位置<br>真値 または 俯瞰カメラで推定"]
-  VIS["rerun / ブラウザ UI<br>可視化・方策 ON/OFF"]
+  VIS["rerun<br>推論の可視化"]
   EVAL["自動評価<br>成功判定・配置固定の比較"]
 
   DEMO -- rosbag --> DATA --> TRAIN --> INFER
@@ -43,6 +45,8 @@ flowchart TD
   SIM -- 関節角 --> INFER
   SIM --> OBJ --> INFER
   INFER --> VIS
+  UI -- 手先指令 --> SIM
+  UI -. 方策 ON/OFF .-> INFER
   EVAL -. 開始・判定 .-> INFER
 ```
 
@@ -73,12 +77,12 @@ cd ~/pai_training && pixi install                    # 初回のみ
 - 推論の可視化（rerun）: http://localhost:9877
 
 ### デモの収集
-- 人のテレオペ: テレオペ UI で「タスクリセット」→「録画開始」→ 物体を掴んで置き場所へ →「録画停止」
-- スクリプトデモ（IK で計画した軌道。学習にはこちらを 117 エピソード使用）:
+- スクリプトデモ（IK で計画した軌道。**学習データは全てこれで生成**し、117 エピソードを使用）:
   ```bash
   cd ~/final_task/ros2_ws
   ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
   ```
+- 人のテレオペ（ブラウザ UI）: 「タスクリセット」→「録画開始」→ 物体を掴んで置き場所へ →「録画停止」
 
 ### 変換・学習・推論・評価（`~/pai_training`）
 ```bash
@@ -101,5 +105,6 @@ cd ~/pai_training && pixi run --frozen test
 ```
 
 ## 注意
+- 学習データはスクリプトデモのみです。人手テレオペのデモでの学習・人手デモとの混合は未検証です（検証中）。
 - 学習データ・学習済みモデル（`data/`）は容量が大きいためリポジトリに含めていません。上記の手順で生成できます。
 - ベースイメージは講義の演習イメージ（`airobotbook/ros2-desktop-ai-robot-book-humble`）、学習は講義の [pai_training](https://github.com/matsuolab/pai_training) を fork して拡張しています。
