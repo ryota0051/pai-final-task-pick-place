@@ -21,3 +21,21 @@ class FrameRateLimiter:
         else:
             self.next_t += self.period
         return True
+
+
+class EventTracker:
+    """方策の ON/OFF とタスク成功の変化点だけをイベントにする（動画の切り出し位置に使う）."""
+
+    NAMES = {('policy', True): 'policy_on', ('policy', False): 'policy_off', ('success', True): 'success'}
+
+    def __init__(self):
+        self.state = {}
+
+    def update(self, key: str, value: bool):
+        prev = self.state.get(key)
+        self.state[key] = value
+        if prev is None and not value:
+            return None
+        if prev == value:
+            return None
+        return self.NAMES.get((key, value))

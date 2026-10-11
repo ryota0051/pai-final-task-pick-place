@@ -11,10 +11,11 @@ SHELL ["/bin/bash", "-c"]
 RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
         -o /usr/share/keyrings/ros-archive-keyring.gpg
 
-# rosbridge（ブラウザ UI 用）とテスト用ツール
+# rosbridge（ブラウザ UI 用）、テスト用ツール、動画撮影用のウィンドウ操作ツール
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-rosbridge-suite \
         python3-pytest \
+        xdotool wmctrl \
     && rm -rf /var/lib/apt/lists/*
 
 USER ubuntu

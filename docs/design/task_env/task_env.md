@@ -112,6 +112,9 @@ ros2 run pai_task_env episode_timer --ros-args --params-file ~/final_task/ros2_w
   （`ee_teleop_node` は有効な間ずっと指令を出し続けるため）: `ros2 service call /teleop/enable std_srvs/srv/SetBool "{data: false}"`
 
 ## 撮影用カメラ（動画・レポート素材用）
+> **注意**: コンテナ内の Gazebo はソフトウェア描画（llvmpipe）のため、カメラセンサーを 1 台追加するだけでシミュレーションが 0.04 倍速まで遅くなる（解像度を下げても同程度）。
+> 推論ノードやスクリプトデモは壁時計で動くので、追加したまま動かすと失敗する。**静止画の撮影専用**とし、動画は Gazebo GUI の画面録画（`scripts/video/record_clips.py`, `scripts/sim/gui_view.sh`）で撮る。
+
 実験には使わない撮影専用のカメラ（`models/presentation_camera.sdf`, 1280×720, 20Hz）を、撮影時だけ Gazebo のサービスで world に追加する。
 GUI 画面のキャプチャと違い、構図が再現でき、画面上の表示物に左右されない。
 ```bash
