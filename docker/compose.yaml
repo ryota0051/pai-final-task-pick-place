@@ -11,6 +11,9 @@ services:
       - RESOLUTION=${RESOLUTION:-1920x1080}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
+      # Gazebo（ign-transport）の通信をコンテナ内に限定する。未設定だと再起動を繰り返したあとに
+      # world が見つからずロボットが出現しない・サービスが Host unreachable になることがあった（2026-10-11）
+      - IGN_IP=127.0.0.1
     ports:
       - "${NOVNC_PORT:-6080}:80"
       - "${ROSBRIDGE_PORT:-9090}:9090"

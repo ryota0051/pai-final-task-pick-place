@@ -49,3 +49,8 @@ cd ~/pai_training && pixi install               # 初回のみ
 `docker exec ... bash -c '...'`（非対話シェル）では `.bashrc` が読まれず FastDDS で起動してしまい、
 CycloneDDS 側のノードとトピックは一部通じてもサービスがハングする（2026-10-10 に推論ノードで発生、`RTPS_READER_HISTORY` エラー）。
 コンテナ内のコマンドは `bash -ic` か対話シェル（`docker exec -it -u ubuntu pai_final_task bash`）で実行すること。
+
+## 注意: Gazebo の通信（ign-transport）
+`IGN_IP=127.0.0.1`（compose の environment）で通信をコンテナ内に限定している。未設定のとき、スタックの再起動や大量のサービス呼び出しを繰り返したあとに
+ロボットが出現しない（`ros_gz_sim create` が world を見つけられない）・サービスが「Host unreachable」になることがあった（2026-10-11）。
+`start_stack.sh` はロボットが出現したかを `ign model --list` で確認する。

@@ -30,3 +30,8 @@ policy_evaluator:
       move_time: 1.5                     # ずらした姿勢への移動時間 [s]
       moving: false                      # true: ずらした姿勢からホームへ戻る途中で方策を開始
       moving_delay: 0.3                  # ホーム指令から方策開始までの時間 [s]
+    # シーンのランダム化（物体色・机の色味・照明・ダミーの箱。学習した検出器の評価用, ADR 0008）
+    scene_randomization:
+      enabled: false
+      config: ""                         # 空なら pai_task_env/config/domain_randomization.yaml の randomize
+      seed: 0

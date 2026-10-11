@@ -10,6 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 from crane_plus_description.robot_description_loader import RobotDescriptionLoader
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, SetParameter
 
@@ -24,6 +25,8 @@ def generate_launch_description():
         DeclareLaunchArgument('robot_z', default_value='1.015', description='ロボットのスポーン高さ（task.yaml の base_origin と一致させる）'),
         DeclareLaunchArgument('object_odom_gz_topic', default_value='/model/target_cube/odometry'),
         DeclareLaunchArgument('camera_config', default_value=os.path.join(share, 'config', 'camera.yaml')),
+        # 赤色検出ノードを起動するか（学習した検出器 pai_training の detect_node を使うときは false）
+        DeclareLaunchArgument('red_detector', default_value='true'),
     ]
 
     # PATH を追加で通さないと STL が読み込まれない（元 launch と同じ）
@@ -80,6 +83,7 @@ def generate_launch_description():
     detector = Node(
         package='pai_task_env', executable='object_detector_node', output='screen',
         parameters=[LaunchConfiguration('camera_config')],
+        condition=IfCondition(LaunchConfiguration('red_detector')),
     )
     return LaunchDescription(args + [
         SetParameter(name='use_sim_time', value=True),

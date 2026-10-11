@@ -1,0 +1,35 @@
+# 物体検出器の学習データ生成（dr_dataset_generator）。ADR 0008
+dr_dataset_generator:
+  ros__parameters:
+    use_sim_time: true
+    images: 2000
+    seed: 0
+    output_dir: ~/dataset/detector/dr_v1
+    camera_config: ""               # 空なら pai_task_env/config/camera.yaml（俯瞰カメラのモデル）
+    world: default
+    object_model: target_cube
+    table_model: Table
+    table_visual: visual1           # 天板の visual 名
+    light_name: sun
+    object_size: 0.04               # 円柱の直径・高さ [m]
+    settle_time: 1.0                # 腕・シーンを変えてから撮影までの待ち [s]
+    # 腕の姿勢: 物体を隠さない（関節を結んだ線が物体から arm_clearance 以上離れる）範囲でランダム
+    arm:
+      x: [0.03, 0.20]
+      y: [-0.16, 0.16]
+      z: [0.06, 0.18]
+      pitch: 1.134
+      clearance: 0.06
+      home_ratio: 0.3                # この割合はホーム姿勢で撮る（評価時の状態）
+      home_ee: [0.10, 0.0, 0.08]     # pai_web_teleop/config/teleop.yaml の home_ee と一致させる
+      speed: 0.08                    # テレオペの手先速度の上限 [m/s]（teleop.yaml の max_linear_speed）
+    randomize:
+      object: {saturation: [0.4, 1.0], value: [0.45, 1.0]}
+      distractors:                  # 箱は大きさ違いを最初に作って使い回す（実行中に大きさは変えられない）
+        count: [0, 3]
+        pool_sizes: [0.02, 0.025, 0.03, 0.035, 0.04, 0.05]
+        min_dist: 0.07
+        x: [0.0, 0.24]
+        y: [-0.16, 0.16]
+      table_tint: [0.5, 1.0]
+      light: {intensity: [0.5, 1.1], max_tilt: 0.7}
