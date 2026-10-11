@@ -11,11 +11,11 @@ ros2_ws/install/
 ros2_ws/log/
 
 # データ・成果物（容量が大きいためgit管理外）
-data/
-dataset/
-checkpoints/
-outputs/
-wandb/
+/data/
+/dataset/
+/checkpoints/
+/outputs/
+/wandb/
 
 # Docker
 docker/.env
