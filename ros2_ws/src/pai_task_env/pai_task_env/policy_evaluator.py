@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import time
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from std_srvs.srv import SetBool, Trigger
 from pai_task_env.evaluation import (
     SettleDetector, TrialResult, parse_positions, sample_start_offsets, summarize, write_csv)
 from pai_task_env.sampler import ObjectSampler, sample_positions
+from pai_task_env.scene_randomizer import SceneRandomizer
 
 
 class PolicyEvaluator(Node):
@@ -71,6 +73,16 @@ class PolicyEvaluator(Node):
         self.start_moving_delay = p('start.moving_delay', 0.3).value
         self.start_move_time = p('start.move_time', 1.5).value
         self.start_offsets = None
+        # シーンのランダム化（物体色・机・照明・ダミーの箱。検出器の頑健性評価, ADR 0008）
+        self.randomizer = None
+        if p('scene_randomization.enabled', False).value:
+            dr_cfg = p('scene_randomization.config', '').value or os.path.join(
+                get_package_share_directory('pai_task_env'), 'config', 'domain_randomization.yaml')
+            with open(dr_cfg, encoding='utf-8') as f:
+                rnd = yaml.safe_load(f)['dr_dataset_generator']['ros__parameters']['randomize']
+            self.randomizer = SceneRandomizer(rnd)
+            self.randomizer.setup()
+            self.scene_rng = random.Random(p('scene_randomization.seed', 0).value)
         if any(m > 0 for m in offset_max):
             self.start_offsets = sample_start_offsets(self.trials, offset_max, p('start.offset_seed', 0).value)
         self.status = {}
@@ -149,6 +161,14 @@ class PolicyEvaluator(Node):
         while time.monotonic() < end and self.status.get('episode') == before:
             self.spin_for(0.05)
 
+    def randomize_scene(self, i):
+        """有効ならシーンをランダムに変える（物体位置はダミーと重ならないよう考慮）."""
+        if self.randomizer is None:
+            return
+        xy = self.positions[i] if self.positions is not None else (self.obj.x, self.obj.y)
+        scene, box_ids = self.randomizer.sample(self.scene_rng, xy)
+        self.randomizer.apply(scene, box_ids)
+
     def perturb_start(self, i):
         """開始姿勢をホームからずらす（無効なら何もしない）. 適用したオフセットを返す."""
         if self.start_offsets is None:
@@ -168,6 +188,7 @@ class PolicyEvaluator(Node):
         if self.observe:
             self.move_ee(*self.observe_ee, duration=self.observe_move_time)
             self.reset_object(i)
+            self.randomize_scene(i)
             self.spin_for(0.5)
             if not self.wait_detection():
                 self.get_logger().warn('object was not detected before the trial')
@@ -179,6 +200,7 @@ class PolicyEvaluator(Node):
             self.trigger('/teleop/home')
             self.spin_for(self.settle_time)
             self.reset_object(i)
+            self.randomize_scene(i)
             self.status = {}
             self.spin_for(self.settle_time)
             self.wait_settled()
@@ -205,7 +227,11 @@ class PolicyEvaluator(Node):
         return result
 
     def run(self):
-        results = [self.run_trial(i) for i in range(self.trials)]
+        try:
+            results = [self.run_trial(i) for i in range(self.trials)]
+        finally:
+            if self.randomizer is not None:
+                self.randomizer.restore()
         self.set_bool('/teleop/enable', True)
         stamp = time.strftime('%Y%m%d_%H%M%S')
         csv_path = self.output_dir / f'{self.label}_{stamp}.csv'
