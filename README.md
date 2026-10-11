@@ -7,20 +7,22 @@
 ## 結果
 Gazebo 上での自律実行の成功率（改良版は物体の配置を固定した同じ 30 か所で比較）:
 
-| モデル | 物体位置の入力 | 成功率 |
-|---|---|---|
-| ベースライン（演習と同じ観測） | なし（関節角のみ） | 10%（20 試行） |
-| 改良版 | 真値 | **100%**（30/30） |
-| 改良版 | **俯瞰カメラから推定** | **100%**（30/30） |
+| モデル | 物体位置の入力 | ホームから開始 | 開始姿勢を ±3cm ずらす |
+|---|---|---|---|
+| ベースライン（演習と同じ観測） | なし（関節角のみ） | 10%（20 試行） | - |
+| 改良版（固定開始のデモのみ） | 真値 | 100%（30/30） | 30%（9/30） |
+| **最終版（開始姿勢をばらつかせたデモを追加）** | 真値 | **100%**（30/30） | **100%**（30/30） |
+| **最終版** | **俯瞰カメラから推定** | **100%**（30/30） | **97%**（29/30） |
 
-詳細な実験記録（学習量・データ量・temporal ensembling・観測劣化への頑健性・失敗原因の分析）は
+詳細な実験記録（学習量・データ量・temporal ensembling・観測劣化への頑健性・失敗原因の分析・開始姿勢への頑健性）は
 [docs/design/training_eval/training_eval.md](docs/design/training_eval/training_eval.md) を参照してください。
 
 ## 演習からの主な改良
 | 演習の弱点 | 改良 |
 |---|---|
 | 関節空間のキーボード操作が直感的でない | ブラウザ UI（rosbridge）で手先の xyz・pitch を操作し、解析的逆運動学で関節角に変換。動作確認・方策の ON/OFF にも使用 |
-| デモを人手で集めるため、条件を揃えた比較実験がしにくい | 物体位置から IK で軌道を計画する**スクリプトデモ**で学習データを自動生成（速度・経由高さ・把持位置にばらつきを付与、seed で再現可能）。テレオペと同じ経路（手先指令 → IK → 関節指令）で収録 |
+| デモを人手で集めるため、条件を揃えた比較実験がしにくい | 物体位置から IK で軌道を計画する**スクリプトデモ**で学習データを自動生成（速度・経由高さ・把持位置・**開始姿勢**にばらつきを付与、seed で再現可能）。テレオペと同じ経路（手先指令 → IK → 関節指令）で収録 |
+| 毎回同じ姿勢から始めることを前提にした方策 | 開始姿勢が 1cm ずれるだけで成功率が 50% に落ちる弱点を評価で発見し、開始姿勢をばらつかせたデモを加えて解消（±3cm でも 100%） |
 | 毎回同じ動作で、観測が関節角のみ | 物体位置をエピソードごとにランダム化し、観測に物体位置を追加 |
 | 物体位置が既知の前提 | 俯瞰カメラの画像から物体位置を推定し、真値なしで自律実行 |
 | 学習・推論が CPU 前提 | Docker に GPU を渡して学習・推論（RTX 4090 で約 50ms/step、60k step で約 1 時間） |
@@ -30,7 +32,7 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 ## 構成
 ```mermaid
 flowchart TD
-  DEMO["① デモ生成<br>スクリプトデモ × 117 エピソード<br>（IK で軌道計画・ばらつき付与）"]
+  DEMO["① デモ生成<br>スクリプトデモ × 235 エピソード<br>（IK で軌道計画・開始姿勢などにばらつき）"]
   UI["ブラウザ UI<br>手先テレオペ・可視化・方策 ON/OFF"]
   DATA["② データセット化<br>rosbag → LeRobotDataset<br>観測: 関節角＋物体位置"]
   TRAIN["③ ACT 学習（GPU）"]
@@ -77,24 +79,28 @@ cd ~/pai_training && pixi install                    # 初回のみ
 - 推論の可視化（rerun）: http://localhost:9877
 
 ### デモの収集
-- スクリプトデモ（IK で計画した軌道。**学習データは全てこれで生成**し、117 エピソードを使用）:
+- スクリプトデモ（IK で計画した軌道。**学習データは全てこれで生成**。固定開始 117 ＋ 開始姿勢ばらつき 118 の計 235 エピソード）:
   ```bash
   cd ~/final_task/ros2_ws
   ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
+  # 開始姿勢をばらつかせる（録画先を分けるため、スタックは recorder_startrand.yaml で起動: docs/design/task_env を参照）
+  ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=125 -p seed:=1 \n    -p "randomize.start_offset:=[0.03,0.03,0.02]"
   ```
 - 人のテレオペ（ブラウザ UI）: 「タスクリセット」→「録画開始」→ 物体を掴んで置き場所へ →「録画停止」
 
 ### 変換・学習・推論・評価（`~/pai_training`）
 ```bash
-pixi run --frozen convert --config configs/pick/conversion_objpos_ep117.yaml --overwrite   # rosbag → LeRobotDataset
-pixi run --frozen train --config configs/pick/train_objpos_ep117.yaml                      # ACT 学習（GPU, 60k step で約 1 時間）
-pixi run --frozen infer --config configs/pick/infer_objpos_ep117.yaml                      # 推論ノード（カメラ推定版は infer_objpos_ep117_camera.yaml）
+pixi run --frozen convert --config configs/pick/conversion_objpos_startrand.yaml --overwrite   # rosbag（2 ディレクトリ）→ LeRobotDataset
+pixi run --frozen train --config configs/pick/train_objpos_startrand.yaml                      # ACT 学習（GPU, 60k step で約 1 時間）
+pixi run --frozen infer --config configs/pick/infer_objpos_startrand.yaml                      # 推論ノード（カメラ推定版は infer_objpos_startrand_camera.yaml）
 ```
-推論ノードの起動後、テレオペ UI の「方策 ON」で自律実行します（腕がホームで静止してから ON にしてください）。
+推論ノードの起動後、テレオペ UI の「方策 ON」で自律実行します。
 
 自動評価（物体配置を固定して真値 / カメラ推定を比較）:
 ```bash
-bash ~/final_task/scripts/sim/eval_paired.sh 0 30 truth:configs/pick/infer_objpos_ep117.yaml camera:configs/pick/infer_objpos_ep117_camera.yaml
+bash ~/final_task/scripts/sim/eval_paired.sh 0 30 truth:configs/pick/infer_objpos_startrand.yaml camera:configs/pick/infer_objpos_startrand_camera.yaml
+# 開始姿勢をずらす場合
+EVAL_ARGS="-p start.offset:=[0.03,0.03,0.02]" bash ~/final_task/scripts/sim/eval_paired.sh 0 30 truth:configs/pick/infer_objpos_startrand.yaml
 ```
 結果は `~/dataset/eval/` に CSV と成功率のサマリ（JSON）で出力されます。
 
@@ -106,6 +112,6 @@ cd ~/pai_training && pixi run --frozen test
 
 ## 注意
 - 学習データはスクリプトデモのみです。人手テレオペのデモでの学習・人手デモとの混合は未検証です（検証中）。
-- 既知の弱点: 方策は静止したホーム姿勢から始めることを前提にしており、開始姿勢が 1cm ずれるだけで成功率が約 50% に下がります（[実験8](docs/design/training_eval/training_eval.md)）。対策を検証中です。
+- 俯瞰カメラでの物体位置推定は赤色のしきい値処理と重心計算による簡易なもので、シミュレーション（赤い物体・一定の照明・既知のカメラ位置）を前提にしています。
 - 学習データ・学習済みモデル（`data/`）は容量が大きいためリポジトリに含めていません。上記の手順で生成できます。
 - ベースイメージは講義の演習イメージ（`airobotbook/ros2-desktop-ai-robot-book-humble`）、学習は講義の [pai_training](https://github.com/matsuolab/pai_training) を fork して拡張しています。

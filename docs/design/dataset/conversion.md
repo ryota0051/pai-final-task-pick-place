@@ -8,6 +8,7 @@
 | `src/pai_training/conversion.py` | 変換の純粋ロジック（名前による関節並べ替え、sample-and-hold、観測の組み立て）。`tests/test_conversion.py` |
 | `scripts/rosbag2lerobot.py` | rosbag 読み出しと LeRobotDataset 書き込み。`--config`, `--overwrite` |
 | `configs/pick/conversion_{baseline,objpos}.yaml` | 把持・配置タスク用設定 |
+| `configs/pick/conversion_objpos_startrand.yaml` | 固定開始 117 ＋ 開始姿勢ばらつきデモの混合（training_eval の実験9） |
 | `configs/pick/features_{baseline,objpos}.py` | LeRobot features 定義 |
 
 ```bash
@@ -25,6 +26,7 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 | `topics.object_pose` | なし | 物体位置トピック（PoseStamped） |
 | `observation.state` / `observation.environment_state` | `[joints]` / `[joints]` | `joints`・`object_xyz` の連結 |
 | `pad_to_longest` | true | 短いエピソードを最終フレームで延長（演習と同じ） |
+| `bag_dir` | 文字列 | 収録ディレクトリ。**リストで複数指定すると順に連結**して 1 つのデータセットにする（`episode_discovery.find_episode_dirs`、`_` で始まるディレクトリは除外） |
 
 把持・配置タスクでは `joint_order` を j1, j2, j3, j4, hand とし、
 - ベースライン: state=関節角(5), environment_state=関節角(5)（演習と同じ構成）
