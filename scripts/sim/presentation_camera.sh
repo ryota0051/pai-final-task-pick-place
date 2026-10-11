@@ -17,6 +17,9 @@ cp, sp, cyw, syw = math.cos(pitch / 2), math.sin(pitch / 2), math.cos(yaw / 2), 
 print(cx, cy, cz, -sp * syw, sp * cyw, cp * syw, cp * cyw)
 PY
 )
+    # 既にあれば作り直す（同名モデルは追加できないため）
+    ign service -s /world/$WORLD/remove --reqtype ignition.msgs.Entity --reptype ignition.msgs.Boolean --timeout 5000       --req 'name: "presentation_camera", type: MODEL' > /dev/null || true
+    sleep 1
     ign service -s /world/$WORLD/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 5000 \
       --req "sdf_filename: \"$SDF\", pose: {position: {x: $X, y: $Y, z: $Z}, orientation: {x: $QX, y: $QY, z: $QZ, w: $QW}}"
     pkill -f "presentation/image@" || true

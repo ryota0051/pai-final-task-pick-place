@@ -3,7 +3,7 @@
 ## 構成
 | ファイル | 役割 |
 |---|---|
-| `docker/Dockerfile` | `airobotbook/ros2-desktop-ai-robot-book-humble`（演習イメージ。crane_plus / ros_gz ビルド済み）に rosbridge・pixi・upstream physicalai_teleop を追加 |
+| `docker/Dockerfile` | `airobotbook/ros2-desktop-ai-robot-book-humble`（演習イメージ。crane_plus / ros_gz ビルド済み）に rosbridge・pixi・upstream physicalai_teleop を追加、動画撮影用の xdotool・wmctrl を追加 |
 | `docker/compose.yaml` | GPU (`gpus: all`)、ポート、ボリューム定義 |
 | `docker/.env.example` | ポート・コンテナ名・データディレクトリ（`docker/.env` にコピーして使用） |
 | `docker/bashrc_extra.sh` | pixi の PATH、各ワークスペースの source、`ft_build` エイリアス |
@@ -24,6 +24,7 @@
 |---|---|---|
 | `ros2_ws/src` | `~/final_task/ros2_ws/src` | 自作パッケージ（bind） |
 | named volume | `~/final_task/ros2_ws/{build,install,log}` | colcon 成果物 |
+| `docs` | `~/final_task/docs`（読み取り専用） | 動画の構成（`docs/report/video.yaml`）・レポート画像を scripts/video から読む |
 | `external/pai_training` | `~/pai_training` | fork（bind）。演習と同じパス |
 | named volume `pixi_env` | `~/pai_training/.pixi` | Windows bind mount 上だと pixi が遅いため分離 |
 | `data/dataset`, `data/checkpoints` | `~/dataset`, `~/checkpoints` | 演習と同じパス。git 管理外 |

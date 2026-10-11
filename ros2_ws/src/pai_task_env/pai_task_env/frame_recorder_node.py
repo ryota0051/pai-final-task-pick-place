@@ -2,10 +2,12 @@
 
 静止画: ros2 run pai_task_env frame_recorder --ros-args -p output:=~/dataset/media/scene.png -p snapshot:=true
 動画  : ros2 run pai_task_env frame_recorder --ros-args -p output:=~/dataset/media/run.mp4 -p duration:=20.0
-        （duration <= 0 なら Ctrl-C まで）
+        （duration <= 0 なら Ctrl-C まで）。方策の ON/OFF・タスク成功の時刻（動画内の秒）を <output>.events.csv に書く
 """
 from __future__ import annotations
 
+import csv
+import json
 import os
 import time
 from pathlib import Path
@@ -15,8 +17,9 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 
-from pai_task_env.frame_recorder import FrameRateLimiter
+from pai_task_env.frame_recorder import EventTracker, FrameRateLimiter
 
 
 class FrameRecorder(Node):
@@ -35,6 +38,10 @@ class FrameRecorder(Node):
         self.done = False
         self.output.parent.mkdir(parents=True, exist_ok=True)
         self.create_subscription(Image, p('topic', '/task/presentation/image').value, self.on_image, 5)
+        self.tracker = EventTracker()
+        self.events = []
+        self.create_subscription(String, '/policy/status', lambda m: self.on_status('policy', m, 'enabled'), 10)
+        self.create_subscription(String, '/task/status', lambda m: self.on_status('success', m, 'success'), 10)
 
     def on_image(self, msg: Image):
         if self.done:
@@ -58,10 +65,21 @@ class FrameRecorder(Node):
         if self.duration > 0 and now - self.t0 >= self.duration:
             self.done = True
 
+    def on_status(self, key: str, msg: String, field: str):
+        if self.writer is None or self.done:
+            return
+        ev = self.tracker.update(key, bool(json.loads(msg.data).get(field)))
+        if ev is not None:
+            self.events.append((round(self.frames / self.fps, 2), ev))
+
     def close(self):
         if self.writer is not None:
             self.writer.release()
-            self.get_logger().info(f'saved {self.output} ({self.frames} frames)')
+            with open(f'{self.output}.events.csv', 'w', newline='') as f:
+                w = csv.writer(f)
+                w.writerow(['time', 'event'])
+                w.writerows(self.events)
+            self.get_logger().info(f'saved {self.output} ({self.frames} frames, {len(self.events)} events)')
 
 
 def main():

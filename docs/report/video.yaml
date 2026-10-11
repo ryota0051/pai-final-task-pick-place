@@ -1,0 +1,62 @@
+# 提出動画の構成（絵コンテ）。素材の録画は scripts/video/record_clips.py、編集は scripts/video/compose.py が読む。
+# パスはコンテナ内。字幕は日本語のみ（ナレーションなし）
+
+output: ~/dataset/media/PAI最終課題_ryokoe1010.mp4
+media_dir: ~/dataset/media/clips
+size: [1280, 720]
+fps: 30
+font: /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
+font_regular: /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+report_img_dir: ~/final_task/docs/report/img
+
+# ---- 画面録画の設定 ----
+# 撮影用カメラセンサーはソフトウェア描画でシミュレーションを 0.04 倍速まで遅くするため使わない。
+# Gazebo GUI（ウィンドウ最大化）の 3D ビューを ffmpeg の x11grab で録画する（ツールバー・パネルを避けた範囲）
+capture:
+  display: ":0"
+  region: [330, 168, 1170, 658]     # x, y, 幅, 高さ（1745x828 の画面で Gazebo を最大化した場合）
+  framerate: 20
+  view: [0.22, 0.14, 1.17, 0.06, -0.05, 1.04]   # GUI の視点（scripts/sim/gui_view.sh の引数）
+
+# ---- 録画する素材 ----
+clips:
+  baseline_fail:            # サンプルと同じ観測（関節角のみ）のモデル: 物体位置が変わると失敗
+    kind: eval
+    infer_config: configs/pick/infer_baseline_ep117.yaml
+    positions: [0.14, 0.06]
+  scripted_demo:            # 学習データの生成（開始姿勢ばらつきあり）
+    kind: scripted
+    episodes: 2
+    seed: 7
+    args: ['-p', 'randomize.start_offset:=[0.03,0.03,0.02]']
+  final_camera:             # 最終モデル・俯瞰カメラ推定でいろいろな位置
+    kind: eval
+    infer_config: configs/pick/infer_objpos_startrand_camera.yaml
+    positions: [0.13, 0.0, 0.10, 0.08, 0.15, -0.03, 0.09, 0.11]
+    args: ['-p', 'observe.enabled:=true']
+  start_old:                # 開始姿勢を上に約 1.3cm ずらす: 固定開始のデモだけで学習したモデル
+    kind: eval
+    infer_config: configs/pick/infer_objpos_ep117.yaml
+    positions: [0.13, -0.01]
+    args: ['-p', 'start.offset:=[0.003,0.003,0.015]', '-p', 'start.offset_seed:=11']
+  start_new:                # 同じ条件で最終モデル
+    kind: eval
+    infer_config: configs/pick/infer_objpos_startrand.yaml
+    positions: [0.13, -0.01]
+    args: ['-p', 'start.offset:=[0.003,0.003,0.015]', '-p', 'start.offset_seed:=11']
+
+# ---- タイムライン ----
+# card: 文字だけの画面 / image: 画像＋字幕 / clip: 素材の切り出し（trials: 何試行目か。方策 ON の 0.5 秒前から成功の 1 秒後まで）
+# speed: 再生速度（2 なら 2 倍速。字幕に倍速表示を付ける）
+timeline:
+  - {type: card, duration: 4, title: "CRANE+ V2 による把持・配置タスクの模倣学習", subtitle: "Physical AI 最終課題 ／ ryokoe1010"}
+  - {type: clip, clip: final_camera, trials: [0], speed: 1, caption: "タスク: 机の上のランダムな位置にある物体を掴み、青い置き場所へ運ぶ（Gazebo）"}
+  - {type: clip, clip: baseline_fail, trials: [0], speed: 2, max_seconds: 12, caption: "サンプル（関節角のみを観測）は決まった動きを再生するだけで、物体の位置が変わると掴めない（成功率 10%）"}
+  - {type: image, image: browser_ui.png, duration: 5, caption: "ブラウザから手先の位置・傾きで操作できる UI を作成（解析的逆運動学で関節角に変換）"}
+  - {type: clip, clip: scripted_demo, speed: 2, caption: "学習データは IK で軌道を計画するスクリプトデモで自動生成（235 回。速度・高さ・把持位置・開始姿勢にばらつき）"}
+  - {type: card, duration: 6, title: "学習", lines: ["観測: 関節角 ＋ 物体位置", "模倣学習 ACT を GPU で学習（60k step・約 1 時間）", "推論時に temporal ensembling で誤差の蓄積を抑制（55% → 100%）"]}
+  - {type: image, image: overhead_camera.png, duration: 4, caption: "物体位置は真値を使わず、俯瞰カメラの画像から推定（誤差 1〜2mm）"}
+  - {type: clip, clip: final_camera, trials: [1, 2, 3], speed: 2, caption: "自律実行（物体位置は俯瞰カメラで推定）"}
+  - {type: compare, left: start_old, right: start_new, trials: [0], speed: 2, max_seconds: 14, left_label: "固定開始のデモだけで学習", right_label: "開始姿勢をばらつかせたデモを追加", crop: [0.12, 0.22, 0.62, 0.62], caption: "開始姿勢が上に約 1cm ずれると、従来モデルは空中でグリッパを閉じて物体を掴まずに置き場所へ向かう → 開始姿勢をばらつかせたデモの追加で解消"}
+  - {type: image, image: fig_start_robustness.png, duration: 6, caption: "物体配置を固定した 30 試行で評価: 開始姿勢を ±3cm ずらしても 100%（カメラ推定でも 97%）"}
+  - {type: card, duration: 6, title: "まとめ", lines: ["成功率 10%（サンプル）→ 100%（物体位置は真値・カメラ推定とも）", "評価で弱点を見つけ、記録から原因を突き止めて改善", "コード: github.com/ryota0051/pai-final-task-pick-place"]}
