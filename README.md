@@ -28,33 +28,21 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 
 ## 構成
 ```mermaid
-flowchart LR
-  subgraph collect["デモ収集"]
-    UI["ブラウザ UI<br>手先 xyz・pitch"] -- rosbridge --> TELEOP["ee_teleop_node<br>解析 IK"]
-    DEMO["scripted_demo<br>IK で軌道計画"]
-  end
-  subgraph sim["Gazebo"]
-    ROBOT["CRANE+ V2・机<br>物体・置き場所"]
-    CAM["俯瞰カメラ"]
-  end
-  subgraph task["pai_task_env"]
-    MGR["task_manager_node<br>ランダム配置・成功判定<br>把持アシスト"]
-    DET["object_detector_node<br>物体位置の推定"]
-    EVAL["policy_evaluator<br>自動評価"]
-  end
-  subgraph learn["pai_training"]
-    BAG[("rosbag")] --> CONV["LeRobotDataset<br>関節角＋物体位置"] --> TRAIN["ACT 学習<br>GPU"]
-    TRAIN --> INFER["推論ノード<br>temporal ensembling"]
-    INFER --> RERUN["rerun<br>可視化"]
-  end
-  TELEOP -- 関節指令 --> ROBOT
-  DEMO -- 関節指令 --> ROBOT
-  TELEOP -. 録画 .-> BAG
-  DEMO -. 録画 .-> BAG
-  ROBOT -- 関節角 --> INFER
-  MGR -- 物体位置（真値） --> INFER
-  CAM --> DET -- 物体位置（推定） --> INFER
-  INFER -- 関節指令 --> ROBOT
+flowchart TD
+  DEMO["① デモ収集<br>ブラウザ UI のテレオペ（手先操作＋解析 IK）<br>またはスクリプトデモ"]
+  DATA["② データセット化<br>rosbag → LeRobotDataset<br>観測: 関節角＋物体位置"]
+  TRAIN["③ ACT 学習（GPU）"]
+  INFER["④ 推論ノード<br>temporal ensembling"]
+  SIM["Gazebo<br>CRANE+ V2・物体・置き場所"]
+  OBJ["物体位置<br>真値 または 俯瞰カメラで推定"]
+  VIS["rerun / ブラウザ UI<br>可視化・方策 ON/OFF"]
+  EVAL["自動評価<br>成功判定・配置固定の比較"]
+
+  DEMO -- rosbag --> DATA --> TRAIN --> INFER
+  INFER -- 関節指令 --> SIM
+  SIM -- 関節角 --> INFER
+  SIM --> OBJ --> INFER
+  INFER --> VIS
   EVAL -. 開始・判定 .-> INFER
 ```
 
