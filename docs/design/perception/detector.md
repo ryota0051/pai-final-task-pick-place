@@ -49,8 +49,26 @@
 - 赤色検出は淡い・暗い赤を見落とし、赤いダミーの箱を誤検出する
 - 学習した検出器の誤差が 1 画素（約 1.5mm）未満なのは、シミュレーションで正解の枠が幾何的に正確で輪郭も鮮明なため。実機ではこの精度は期待できない
 
-### 方策での評価（ランダム化したシーン）
-（実行中）
+### 方策での評価（2026-10-11）
+最終モデル（開始姿勢ばらつきデモ混合版, `infer_objpos_startrand_camera.yaml`）、配置固定 30 か所（seed 0）、observe 手順あり。
+ランダム化は `policy_evaluator` の `scene_randomization.enabled:=true`（seed 0 で試行ごとに物体色・机・照明・ダミーの箱を変更）。
+
+| シーン | 物体位置の推定 | 成功率 | 95% CI |
+|---|---|---|---|
+| ランダム化 | **学習した検出器** | **30/30 = 100%** | 89–100% |
+| ランダム化 | 赤色検出 | 3/30 = 10% | 3–26% |
+| 元のシーン（赤い物体） | 学習した検出器 | 30/30 = 100% | 89–100% |
+| 元のシーン（赤い物体） | 赤色検出（実験9） | 30/30 = 100% | 89–100% |
+
+- 学習した検出器は、見た目が変わっても元のシーンと同じ成功率を保った。赤色検出は物体が赤系でないと検出できず、ほぼ失敗する
+- 方策（ACT）は再学習していない。物体位置の推定を差し替えるだけで頑健性が上がった
+
+起動手順:
+```bash
+TASK_ENV_ARGS="red_detector:=false" ~/final_task/scripts/sim/start_stack.sh
+cd ~/pai_training && pixi run --frozen detect-node --config configs/detection/detect_rtdetr.yaml &
+EVAL_ARGS="-p scene_randomization.enabled:=true" bash ~/final_task/scripts/sim/eval_paired.sh 0 30 dr_learned:configs/pick/infer_objpos_startrand_camera.yaml
+```
 
 ## 限界
 - シミュレーション画像だけで学習しているため、実機の画像での動作は保証しない（主張は「実機に近い見た目の変化に頑健」まで）
