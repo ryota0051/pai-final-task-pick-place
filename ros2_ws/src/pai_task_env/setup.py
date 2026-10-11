@@ -30,6 +30,7 @@ setup(
             'policy_evaluator = pai_task_env.policy_evaluator:main',
             'object_detector_node = pai_task_env.object_detector_node:main',
             'episode_timer = pai_task_env.episode_timer_node:main',
+            'frame_recorder = pai_task_env.frame_recorder_node:main',
         ],
     },
 )

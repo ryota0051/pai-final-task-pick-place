@@ -1,0 +1,31 @@
+# レポートの図に使う評価結果（出典: docs/design/training_eval/training_eval.md の実験記録）
+# scripts/report/make_figures.py が読み込む
+
+font_family: ["Yu Gothic", "Meiryo", "MS Gothic"]   # 日本語ラベル用（Windows で生成）
+
+# 図2: 物体位置の観測と temporal ensembling (TE) の効果（117 エピソード, 60k step, ランダム配置 20 試行）
+improvements:
+  title: "物体位置の観測と temporal ensembling (TE) の効果（20 試行）"
+  bars:
+    - {label: "ベースライン\n関節角のみ・TE あり", successes: 2, trials: 20, note: "実験5"}
+    - {label: "改良版\n＋物体位置・TE なし", successes: 11, trials: 20, note: "実験3"}
+    - {label: "改良版\n＋物体位置・TE あり", successes: 20, trials: 20, note: "実験3"}
+
+# 図3: 開始姿勢への頑健性（配置固定 30 か所, 真値）
+start_robustness:
+  title: "開始姿勢のずれに対する成功率（配置固定 30 試行）"
+  conditions: ["ホームで静止", "±1cm", "±3cm", "±3cm から\n戻る途中で開始"]
+  series:
+    - {label: "固定開始のデモ 117", successes: [30, 15, 9, 14], trials: 30}
+    - {label: "＋開始姿勢ばらつきデモ 118", successes: [30, 30, 30, 30], trials: 30}
+
+# 図4: 物体位置の観測劣化への頑健性（実験4, 20 試行）
+object_corruption:
+  title: "物体位置の観測誤差に対する成功率（20 試行）"
+  bars:
+    - {label: "誤差なし", successes: 20, trials: 20}
+    - {label: "ノイズ\nσ=10mm", successes: 19, trials: 20}
+    - {label: "遅延\n0.5s", successes: 19, trials: 20}
+    - {label: "一定ずれ\nσ=5mm", successes: 19, trials: 20}
+    - {label: "一定ずれ\nσ=10mm", successes: 13, trials: 20}
+    - {label: "一定ずれ\nσ=20mm", successes: 8, trials: 20}

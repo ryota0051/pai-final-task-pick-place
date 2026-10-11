@@ -24,3 +24,6 @@ docker/.env
 .DS_Store
 Thumbs.db
 .vscode/
+
+# レポートのビルド成果物
+/docs/report/build/
