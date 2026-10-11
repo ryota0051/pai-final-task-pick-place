@@ -46,6 +46,37 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - ボタン: タスクリセット（`/task/reset` → ホーム → 開）、録画開始/停止、直前を破棄、方策 ON/OFF
 - 表示: IK 状態、関節角、録画状態、物体位置、タスク状態、方策状態
 
+## ブラウザ UI で学習済みモデルを動かす（自律実行）
+推論ノードは UI から起動できないので、ターミナルで起動してから UI の「方策 ON / OFF」で操作する。
+
+1. シミュレーションとテレオペ UI を起動する（コンテナ内）
+   ```bash
+   ~/final_task/scripts/sim/start_stack.sh
+   ```
+2. 推論ノードを起動する（別のターミナル。物体位置の取り方で設定を選ぶ）
+   ```bash
+   cd ~/pai_training
+   pixi run --frozen infer --config configs/pick/infer_objpos_startrand.yaml          # 物体位置は真値
+   pixi run --frozen infer --config configs/pick/infer_objpos_startrand_camera.yaml   # 俯瞰カメラの赤色検出で推定
+   ```
+   学習した物体検出器を使う場合は、手順 1 を `TASK_ENV_ARGS="red_detector:=false" ~/final_task/scripts/sim/start_stack.sh` で起動し、
+   `pixi run --frozen detect-node --config configs/detection/detect_rtdetr.yaml` を動かしてから、カメラ版の設定で推論ノードを起動する
+   （詳細は docs/design/perception/detector.md）
+3. ブラウザで http://localhost:8080 を開き、Gazebo の様子は http://localhost:6080（noVNC）で見る
+4. 「タスクリセット」で物体をランダムな位置に置き直す（腕はホームに戻り、グリッパが開く）
+5. 腕が止まったら「方策 ON」を押す。テレオペが無効になり、方策が腕を動かす
+   - 「自律実行（方策）」の状態欄に `実行中 / 推論時間 ms / pred: 予測した関節角` が出る
+   - データ収集の欄の「タスク」が「成功」になれば完了（物体を置き場所に置いて 0.5 秒静止）
+6. 「方策 OFF」で止める（テレオペが有効に戻る。腕はその場で止まる）。続けて試すときは 4 から繰り返す
+
+注意:
+- 「方策 ON」で方策の内部状態（temporal ensembling の履歴）はリセットされる。動作中に OFF → ON した場合も最初からやり直しになる
+- 推論ノードは物体位置を受け取るまで指令を出さない。カメラ版で腕の根元付近に物体があると、ホーム姿勢の腕に隠れて検出できないことがある。
+  その場合は手先を一度その場から動かして（スライダーやキー）物体を見せてから、ホームに戻して ON にする
+- 推論中の予測・関節角・物体位置は rerun（http://localhost:9877）で見られる
+- 最終モデル（開始姿勢をばらつかせたデモを追加）は開始姿勢のずれに強いが、固定開始のデモだけで学習したモデル（`infer_objpos_ep117*.yaml`）は
+  ホームで腕が止まる前に ON にすると失敗しやすい（training_eval の実験7・8）
+
 ## 動作確認（2026-10-10）
 - Gazebo 上で FK（`crane_plus_kinematics`）と TF（crane_plus_base→link3/link4）が 3 姿勢で一致
 - ブラウザから W キー 1 秒で x: 0.12→0.18、pitch 自動緩和、グリッパ閉を確認。Gazebo の関節角・TF も追従
