@@ -161,6 +161,19 @@ class PolicyEvaluator(Node):
         while time.monotonic() < end and self.status.get('episode') == before:
             self.spin_for(0.05)
 
+    def reset_and_randomize(self, i):
+        """物体を置き直し、有効ならシーンの見た目を変える.
+
+        配置が事前に分かる場合は見た目を先に変える。置き直した後に変えると、変わるまでの間に
+        検出器が元の見た目（赤い物体）を見て推定値を保持してしまい、評価が甘くなる（2026-10-11 に発見）。
+        """
+        known = self.positions is not None
+        if known:
+            self.randomize_scene(i)
+        self.reset_object(i)
+        if not known:
+            self.randomize_scene(i)
+
     def randomize_scene(self, i):
         """有効ならシーンをランダムに変える（物体位置はダミーと重ならないよう考慮）."""
         if self.randomizer is None:
@@ -187,8 +200,7 @@ class PolicyEvaluator(Node):
         self.set_bool('/teleop/enable', True)
         if self.observe:
             self.move_ee(*self.observe_ee, duration=self.observe_move_time)
-            self.reset_object(i)
-            self.randomize_scene(i)
+            self.reset_and_randomize(i)
             self.spin_for(0.5)
             if not self.wait_detection():
                 self.get_logger().warn('object was not detected before the trial')
@@ -199,8 +211,7 @@ class PolicyEvaluator(Node):
         else:
             self.trigger('/teleop/home')
             self.spin_for(self.settle_time)
-            self.reset_object(i)
-            self.randomize_scene(i)
+            self.reset_and_randomize(i)
             self.status = {}
             self.spin_for(self.settle_time)
             self.wait_settled()

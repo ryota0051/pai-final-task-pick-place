@@ -3,6 +3,7 @@
 python3 ~/final_task/scripts/video/record_clips.py [clip 名 ...]   # 省略時は docs/report/video.yaml の全 clip
 Gazebo GUI の 3D ビューを画面録画し（capture 設定）、方策 ON/OFF・成功の時刻を event_logger で記録する。
 出力: <media_dir>/<clip>.mp4 と <clip>.mp4.events.csv（動画内の秒）
+clip に overhead: true があれば、俯瞰カメラの映像も <clip>_overhead.mp4（＋events）として保存する（frame_recorder）。
 """
 import csv
 import os
@@ -50,6 +51,12 @@ def record(name, spec, cap, media_dir):
                              '-video_size', f'{w}x{h}', '-i', f"{cap['display']}+{x},{y}",
                              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', str(out)],
                             stdin=subprocess.PIPE, start_new_session=True)
+    overhead = None
+    if spec.get('overhead'):
+        overhead = subprocess.Popen(['ros2', 'run', 'pai_task_env', 'frame_recorder', '--ros-args',
+                                     '-p', f'output:={media_dir / (name + "_overhead.mp4")}',
+                                     '-p', 'topic:=/task/camera/image', '-p', 'fps:=10.0', '-p', 'duration:=0.0'],
+                                    start_new_session=True)
     try:
         if spec['kind'] == 'eval':
             pos = ','.join(str(v) for v in spec['positions'])
@@ -66,6 +73,8 @@ def record(name, spec, cap, media_dir):
     finally:
         grab.communicate(b'q', timeout=30)   # ffmpeg は q で正常終了（mp4 を閉じる）
         stop(logger)
+        if overhead is not None:
+            stop(overhead)
     to_video_time(abs_csv, Path(f'{out}.events.csv'), t0)
     abs_csv.unlink()
     print(f'recorded {out}', flush=True)
