@@ -27,4 +27,8 @@ if grep -qiE "Traceback|process has died" /tmp/task_env.log /tmp/web_teleop.log;
   echo "[NG] 起動エラーがあります:"; grep -iE "Traceback|process has died" /tmp/task_env.log /tmp/web_teleop.log | head
   exit 1
 fi
+# エラー文字列がなくても、Gazebo の通信不調でロボットが出現しないことがあるので実際に確認する
+if ! ign model --list 2>/dev/null | grep -q crane_plus; then
+  echo "[NG] ロボットが Gazebo に出現していません（ign-transport の不調。IGN_IP=127.0.0.1 を確認）"; exit 1
+fi
 echo "[OK] Gazebo: noVNC http://localhost:6080 / テレオペ UI: http://localhost:8080"
