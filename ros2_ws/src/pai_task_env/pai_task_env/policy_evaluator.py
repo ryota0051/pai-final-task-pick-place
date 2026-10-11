@@ -27,7 +27,7 @@ from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
 
 from pai_task_env.evaluation import (
-    SettleDetector, TrialResult, parse_positions, summarize, write_csv)
+    SettleDetector, TrialResult, parse_positions, sample_start_offsets, summarize, write_csv)
 from pai_task_env.sampler import ObjectSampler, sample_positions
 
 
@@ -63,6 +63,16 @@ class PolicyEvaluator(Node):
         if explicit:
             self.positions = explicit
             self.trials = len(explicit)
+        # 開始姿勢の摂動（頑健性評価）: ホーム手先姿勢から offset だけずらした姿勢で開始する。
+        # moving=true ならずらした姿勢からホームへ戻る途中（moving_delay 秒後）で開始する
+        self.home_ee = list(p('start.home_ee', [0.10, 0.0, 0.08, 1.134]).value)
+        offset_max = list(p('start.offset', [0.0, 0.0, 0.0]).value)
+        self.start_moving = p('start.moving', False).value
+        self.start_moving_delay = p('start.moving_delay', 0.3).value
+        self.start_move_time = p('start.move_time', 1.5).value
+        self.start_offsets = None
+        if any(m > 0 for m in offset_max):
+            self.start_offsets = sample_start_offsets(self.trials, offset_max, p('start.offset_seed', 0).value)
         self.status = {}
         self.detector = {}
         self.obj = None
@@ -139,6 +149,19 @@ class PolicyEvaluator(Node):
         while time.monotonic() < end and self.status.get('episode') == before:
             self.spin_for(0.05)
 
+    def perturb_start(self, i):
+        """開始姿勢をホームからずらす（無効なら何もしない）. 適用したオフセットを返す."""
+        if self.start_offsets is None:
+            return (0.0, 0.0, 0.0)
+        dx, dy, dz = self.start_offsets[i]
+        x, y, z, pitch = self.home_ee
+        self.move_ee(x + dx, y + dy, z + dz, pitch, duration=self.start_move_time)
+        self.wait_settled()
+        if self.start_moving:
+            self.trigger('/teleop/home')
+            self.spin_for(self.start_moving_delay)
+        return (dx, dy, dz)
+
     def run_trial(self, i) -> TrialResult:
         self.set_bool('/policy/enable', False)
         self.set_bool('/teleop/enable', True)
@@ -160,6 +183,7 @@ class PolicyEvaluator(Node):
             self.spin_for(self.settle_time)
             self.wait_settled()
         ox, oy = (self.obj.x, self.obj.y) if self.obj else (float('nan'), float('nan'))
+        offset = self.perturb_start(i)
 
         self.set_bool('/teleop/enable', False)
         self.trigger('/policy/reset')
@@ -174,7 +198,9 @@ class PolicyEvaluator(Node):
         duration = time.monotonic() - t0
         self.set_bool('/policy/enable', False)
         result = TrialResult(trial=i, success=success, lifted=bool(self.status.get('lifted')),
-                             duration=round(duration, 2), object_x=round(ox, 4), object_y=round(oy, 4))
+                             duration=round(duration, 2), object_x=round(ox, 4), object_y=round(oy, 4),
+                             start_dx=round(offset[0], 4), start_dy=round(offset[1], 4),
+                             start_dz=round(offset[2], 4))
         self.get_logger().info(f'[{self.label}] trial {i}: {result}')
         return result
 

@@ -22,3 +22,11 @@ policy_evaluator:
     # 試行数ぶんの位置を再現可能に生成し、条件間（真値 / カメラなど）で同じ配置を比較できる。-1 で毎回ランダム
     positions_seed: -1
     task_config: ""                    # 空なら pai_task_env/config/task.yaml
+    # 開始姿勢の摂動（開始姿勢のずれ・動作中の開始への頑健性評価。2026-10-11 実験8）
+    start:
+      home_ee: [0.10, 0.0, 0.08, 1.134]   # pai_web_teleop/config/teleop.yaml の home_ee と一致させる
+      offset: [0.0, 0.0, 0.0]            # 手先オフセットの各軸の最大値 [m]（±一様分布）。全て 0 で無効
+      offset_seed: 0
+      move_time: 1.5                     # ずらした姿勢への移動時間 [s]
+      moving: false                      # true: ずらした姿勢からホームへ戻る途中で方策を開始
+      moving_delay: 0.3                  # ホーム指令から方策開始までの時間 [s]

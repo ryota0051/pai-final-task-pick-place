@@ -3,7 +3,8 @@ import csv
 import pytest
 
 from pai_task_env.evaluation import (
-    SettleDetector, TrialResult, parse_positions, summarize, wilson_interval, write_csv)
+    SettleDetector, TrialResult, parse_positions, sample_start_offsets, summarize, wilson_interval,
+    write_csv)
 
 
 def test_wilson_interval_known_values():
@@ -46,7 +47,8 @@ def test_write_csv(tmp_path):
     rows = list(csv.DictReader(open(path)))
     assert len(rows) == 2
     assert rows[0]['success'] == 'True'
-    assert set(rows[0]) == {'trial', 'success', 'lifted', 'duration', 'object_x', 'object_y'}
+    assert set(rows[0]) == {'trial', 'success', 'lifted', 'duration', 'object_x', 'object_y',
+                            'start_dx', 'start_dy', 'start_dz'}
 
 
 def test_parse_positions_pairs_flat_list():
@@ -76,3 +78,24 @@ def test_settle_detector_moving_joint_is_not_settled():
     assert not d.settled
     d.reset()
     assert not d.settled
+
+
+def test_sample_start_offsets_reproducible_and_bounded():
+    a = sample_start_offsets(5, [0.02, 0.03, 0.0], seed=1)
+    b = sample_start_offsets(5, [0.02, 0.03, 0.0], seed=1)
+    assert a == b
+    assert len(a) == 5
+    for dx, dy, dz in a:
+        assert abs(dx) <= 0.02 and abs(dy) <= 0.03 and dz == 0.0
+
+
+def test_sample_start_offsets_zero_range_gives_zeros():
+    assert sample_start_offsets(2, [0.0, 0.0, 0.0], seed=0) == [(0.0, 0.0, 0.0)] * 2
+
+
+def test_trial_result_start_offset_defaults_to_zero(tmp_path):
+    r = TrialResult(trial=0, success=True, lifted=True, duration=1.0, object_x=0.1, object_y=0.0)
+    assert (r.start_dx, r.start_dy, r.start_dz) == (0.0, 0.0, 0.0)
+    write_csv(tmp_path / 'r.csv', [r])
+    header = (tmp_path / 'r.csv').read_text().splitlines()[0]
+    assert header.endswith('start_dx,start_dy,start_dz')

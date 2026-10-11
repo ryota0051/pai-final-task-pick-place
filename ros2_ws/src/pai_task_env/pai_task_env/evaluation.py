@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import math
+import random
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import List, Sequence, Tuple
@@ -16,6 +17,10 @@ class TrialResult:
     duration: float      # 成功までの時間、失敗時はタイムアウトまでの時間 [s]
     object_x: float
     object_y: float
+    # 開始姿勢のホームからの手先オフセット [m]（開始姿勢への頑健性評価用。通常は 0）
+    start_dx: float = 0.0
+    start_dy: float = 0.0
+    start_dz: float = 0.0
 
 
 def parse_positions(flat: Sequence[float]) -> List[Tuple[float, float]]:
@@ -23,6 +28,12 @@ def parse_positions(flat: Sequence[float]) -> List[Tuple[float, float]]:
     if len(flat) % 2:
         raise ValueError(f'positions must have an even number of values: {len(flat)}')
     return [(float(flat[i]), float(flat[i + 1])) for i in range(0, len(flat), 2)]
+
+
+def sample_start_offsets(n: int, max_xyz: Sequence[float], seed: int) -> List[Tuple[float, float, float]]:
+    """開始姿勢の手先オフセットを各軸 [-max, +max] の一様分布から再現可能に生成する."""
+    rng = random.Random(seed)
+    return [tuple(rng.uniform(-m, m) if m > 0 else 0.0 for m in max_xyz) for _ in range(n)]
 
 
 class SettleDetector:

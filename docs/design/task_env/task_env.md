@@ -95,3 +95,14 @@ ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/co
 | 画像レート | 約 9Hz（設定 10Hz） |
 | シミュレーション実時間比 | 0.91（GPU 学習を並行実行中。カメラなしは約 1.0） |
 | 推定誤差（ランダム配置 3 回） | 約 1.5mm 以下 |
+
+## 操作時間の計測（`episode_timer`）
+テレオペ方式（ブラウザ手先 UI / 演習の関節キーボード）の操作時間を比べるためのノード。
+指令ではなく関節の動きで開始を判定するので、操作方式によらず同じ基準で測れる（`pai_task_env/episode_timer.py`）。
+```bash
+ros2 run pai_task_env episode_timer --ros-args --params-file ~/final_task/ros2_ws/src/pai_task_env/config/episode_timer.yaml -p label:=browser
+```
+- エピソード（`/task/status` の `episode`）ごとに、リセット時の姿勢から関節が `motion_threshold` 以上動いた時刻〜成功までを
+  `~/dataset/teleop_time/<label>.csv`（label, episode, idle, duration）に追記する
+- 関節キーボード（`ros2 run physicalai_teleop teleop_keyboard`）で計測するときは、ブラウザ側のテレオペを無効にする
+  （`ee_teleop_node` は有効な間ずっと指令を出し続けるため）: `ros2 service call /teleop/enable std_srvs/srv/SetBool "{data: false}"`

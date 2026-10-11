@@ -106,5 +106,6 @@ cd ~/pai_training && pixi run --frozen test
 
 ## 注意
 - 学習データはスクリプトデモのみです。人手テレオペのデモでの学習・人手デモとの混合は未検証です（検証中）。
+- 既知の弱点: 方策は静止したホーム姿勢から始めることを前提にしており、開始姿勢が 1cm ずれるだけで成功率が約 50% に下がります（[実験8](docs/design/training_eval/training_eval.md)）。対策を検証中です。
 - 学習データ・学習済みモデル（`data/`）は容量が大きいためリポジトリに含めていません。上記の手順で生成できます。
 - ベースイメージは講義の演習イメージ（`airobotbook/ros2-desktop-ai-robot-book-humble`）、学習は講義の [pai_training](https://github.com/matsuolab/pai_training) を fork して拡張しています。
