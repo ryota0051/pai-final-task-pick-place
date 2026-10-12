@@ -73,7 +73,7 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - 「方策 ON」で方策の内部状態（temporal ensembling の履歴）はリセットされる。動作中に OFF → ON した場合も最初からやり直しになる
 - 推論ノードは物体位置を受け取るまで指令を出さない。カメラ版で腕の根元付近に物体があると、ホーム姿勢の腕に隠れて検出できないことがある。
   その場合は手先を一度その場から動かして（スライダーやキー）物体を見せてから、ホームに戻して ON にする
-- 推論中の予測・関節角・物体位置は rerun（<http://localhost:9877>）で見られる
+- 推論中の予測・関節角・物体位置は rerun（<http://localhost:9877/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy>）で見られる（`?url=` を付けないと rerun の紹介画面になる）
 - 最終モデル（開始姿勢をばらつかせたデモを追加）は開始姿勢のずれに強いが、固定開始のデモだけで学習したモデル（`infer_objpos_ep117*.yaml`）は
   ホームで腕が止まる前に ON にすると失敗しやすい（[training_eval](../training_eval/training_eval.md) の実験7・8）
 
