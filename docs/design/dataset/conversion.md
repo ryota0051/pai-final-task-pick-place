@@ -27,6 +27,8 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 | `observation.state` / `observation.environment_state` | `[joints]` / `[joints]` | `joints`・`object_xyz` の連結 |
 | `pad_to_longest` | true | 短いエピソードを最終フレームで延長（演習と同じ） |
 | `bag_dir` | 文字列 | 収録ディレクトリ。**リストで複数指定すると順に連結**して 1 つのデータセットにする（`episode_discovery.find_episode_dirs`、`_` で始まるディレクトリは除外） |
+| `observation.*` の `object_minus_ee` | - | 物体位置 − 手先位置（順運動学）。`kinematics: {package, config}` 節で crane_plus_kinematics を指定する（`fk_loader`。推論ノードも同じ設定で計算。training_eval の実験11） |
+| `pad_to_longest: false` | - | 末尾の延長をしない。長さの大きく違うデモ（人手デモ）を混ぜるときに使う（実験10。延長の有無で性能は変わらなかった） |
 
 把持・配置タスクでは `joint_order` を j1, j2, j3, j4, hand とし、
 - ベースライン: state=関節角(5), environment_state=関節角(5)（演習と同じ構成）
