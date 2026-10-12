@@ -48,7 +48,7 @@ def test_write_csv(tmp_path):
     assert len(rows) == 2
     assert rows[0]['success'] == 'True'
     assert set(rows[0]) == {'trial', 'success', 'lifted', 'duration', 'object_x', 'object_y',
-                            'start_dx', 'start_dy', 'start_dz'}
+                            'start_dx', 'start_dy', 'start_dz', 'place_x', 'place_y'}
 
 
 def test_parse_positions_pairs_flat_list():
@@ -98,4 +98,19 @@ def test_trial_result_start_offset_defaults_to_zero(tmp_path):
     assert (r.start_dx, r.start_dy, r.start_dz) == (0.0, 0.0, 0.0)
     write_csv(tmp_path / 'r.csv', [r])
     header = (tmp_path / 'r.csv').read_text().splitlines()[0]
-    assert header.endswith('start_dx,start_dy,start_dz')
+    assert 'start_dx,start_dy,start_dz' in header
+
+
+def test_parse_positions_with_place_groups_by_four():
+    flat = [0.1, -0.01, 0.12, 0.08, 0.12, 0.02, 0.05, -0.1]
+    assert parse_positions(flat, width=4) == [(0.1, -0.01, 0.12, 0.08), (0.12, 0.02, 0.05, -0.1)]
+    with pytest.raises(ValueError):
+        parse_positions([0.1, 0.2], width=4)
+
+
+def test_trial_result_records_place(tmp_path):
+    r = TrialResult(trial=0, success=True, lifted=True, duration=5.0, object_x=0.1, object_y=0.0,
+                    place_x=0.12, place_y=0.08)
+    write_csv(tmp_path / 'a.csv', [r])
+    header = (tmp_path / 'a.csv').read_text().splitlines()[0]
+    assert header.endswith('place_x,place_y')

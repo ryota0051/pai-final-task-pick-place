@@ -65,3 +65,14 @@ def test_reach_mode_success_by_ee_distance():
     t.update(1.0, (0.15, 0.05, TABLE_Z), ee_xyz=(0.15, 0.05, 0.025))
     s = t.update(1.3, (0.15, 0.05, TABLE_Z), ee_xyz=(0.151, 0.05, 0.025))
     assert s['success']
+
+
+def test_place_can_be_moved_between_episodes():
+    t = SuccessTracker(place_xy=(0.1, -0.12), place_radius=0.035, rest_z=0.02,
+                       z_tolerance=0.01, lift_height=0.02, hold_time=0.5)
+    t.set_place((0.12, 0.08))
+    t.update(0.0, (0.12, 0.08, 0.05))       # 持ち上げ
+    t.update(1.0, (0.12, 0.08, 0.02))
+    assert t.update(1.6, (0.12, 0.08, 0.02))['success']
+    t.reset()
+    assert not t.update(0.0, (0.1, -0.12, 0.02))['in_place_zone']

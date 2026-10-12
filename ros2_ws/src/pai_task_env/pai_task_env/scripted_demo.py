@@ -111,6 +111,7 @@ class ScriptedDemo(Node):
         if not self.call('/task/reset'):
             return False
         self.latest.pop('obj', None)
+        self.latest.pop('place', None)   # 置き場所もランダム化する場合に古い位置で計画しないよう、リセット後の値を待つ
         self.spin_for(self.settle_time)
         if 'obj' not in self.latest or 'ee' not in self.latest or 'place' not in self.latest:
             self.get_logger().error('object / ee / place pose not received')

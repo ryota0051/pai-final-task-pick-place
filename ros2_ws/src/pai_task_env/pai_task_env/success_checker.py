@@ -27,6 +27,10 @@ class SuccessTracker:
         self.reach_threshold = reach_threshold
         self.reset()
 
+    def set_place(self, place_xy: Tuple[float, float]) -> None:
+        """置き場所を変える（置き場所をエピソードごとにランダム化する場合）."""
+        self.place_xy = place_xy
+
     def reset(self) -> None:
         self.lifted = False
         self.success = False

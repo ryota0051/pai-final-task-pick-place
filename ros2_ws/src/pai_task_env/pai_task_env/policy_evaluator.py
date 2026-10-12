@@ -24,12 +24,12 @@ from geometry_msgs.msg import Point, PoseStamped
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
+from std_msgs.msg import Float64MultiArray, String
 from std_srvs.srv import SetBool, Trigger
 
 from pai_task_env.evaluation import (
     SettleDetector, TrialResult, parse_positions, sample_start_offsets, summarize, write_csv)
-from pai_task_env.sampler import ObjectSampler, sample_positions
+from pai_task_env.sampler import ObjectSampler, PlaceSampler, sample_positions
 from pai_task_env.scene_randomizer import SceneRandomizer
 
 
@@ -52,6 +52,9 @@ class PolicyEvaluator(Node):
         self.observe_timeout = p('observe.timeout', 5.0).value
         # 物体位置の固定リスト（条件間で同じ配置を比較するため）。-1 なら毎回ランダム
         seed = p('positions_seed', -1).value
+        # 置き場所もランダム化する評価（タスク環境を randomize_place:=true で起動しておく）。
+        # 位置リストは (物体 x, y, 置き場所 x, y) になり、/task/reset_to_scene で両方を置き直す
+        self.randomize_place = p('randomize_place', False).value
         task_cfg = p('task_config', '').value or os.path.join(
             get_package_share_directory('pai_task_env'), 'config', 'task.yaml')
         self.positions = None
@@ -59,9 +62,12 @@ class PolicyEvaluator(Node):
             with open(task_cfg, encoding='utf-8') as f:
                 tp = yaml.safe_load(f)['task_manager_node']['ros__parameters']
             sampler = ObjectSampler.from_dict({**tp['sampler'], 'place_xy': tp['place']['xy']})
-            self.positions = sample_positions(sampler, self.trials, seed)
+            place_sampler = PlaceSampler.from_dict(tp['place']['sampler']) if self.randomize_place else None
+            self.positions = sample_positions(sampler, self.trials, seed, place_sampler)
         # 物体位置の直接指定 [x0, y0, x1, y1, ...]（特定の領域の走査用）。指定時は seed より優先し、試行数も上書き
-        explicit = parse_positions(p('positions', Parameter.Type.DOUBLE_ARRAY).value or [])
+        # 置き場所もランダム化する場合は [物体 x0, y0, 置き場所 x0, y0, ...]
+        explicit = parse_positions(p('positions', Parameter.Type.DOUBLE_ARRAY).value or [],
+                                   width=4 if self.randomize_place else 2)
         if explicit:
             self.positions = explicit
             self.trials = len(explicit)
@@ -94,6 +100,7 @@ class PolicyEvaluator(Node):
                                  lambda m: self.detector.update(json.loads(m.data)), 10)
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
         self.reset_to_pub = self.create_publisher(Point, '/task/reset_to', 10)
+        self.reset_scene_pub = self.create_publisher(Float64MultiArray, '/task/reset_to_scene', 10)
         self.create_subscription(
             JointState, '/joint_states',
             lambda m: self.settle.update(time.monotonic(), list(m.position)), 10)
@@ -155,8 +162,11 @@ class PolicyEvaluator(Node):
             self.trigger('/task/reset')
             return
         before = self.status.get('episode')
-        x, y = self.positions[i]
-        self.reset_to_pub.publish(Point(x=float(x), y=float(y), z=0.0))
+        pos = self.positions[i]
+        if len(pos) == 4:
+            self.reset_scene_pub.publish(Float64MultiArray(data=[float(v) for v in pos]))
+        else:
+            self.reset_to_pub.publish(Point(x=float(pos[0]), y=float(pos[1]), z=0.0))
         end = time.monotonic() + 5.0
         while time.monotonic() < end and self.status.get('episode') == before:
             self.spin_for(0.05)
@@ -178,7 +188,7 @@ class PolicyEvaluator(Node):
         """有効ならシーンをランダムに変える（物体位置はダミーと重ならないよう考慮）."""
         if self.randomizer is None:
             return
-        xy = self.positions[i] if self.positions is not None else (self.obj.x, self.obj.y)
+        xy = self.positions[i][:2] if self.positions is not None else (self.obj.x, self.obj.y)
         scene, box_ids = self.randomizer.sample(self.scene_rng, xy)
         self.randomizer.apply(scene, box_ids)
 
@@ -216,6 +226,7 @@ class PolicyEvaluator(Node):
             self.spin_for(self.settle_time)
             self.wait_settled()
         ox, oy = (self.obj.x, self.obj.y) if self.obj else (float('nan'), float('nan'))
+        place = self.status.get('place') if self.randomize_place else None
         offset = self.perturb_start(i)
 
         self.set_bool('/teleop/enable', False)
@@ -233,7 +244,8 @@ class PolicyEvaluator(Node):
         result = TrialResult(trial=i, success=success, lifted=bool(self.status.get('lifted')),
                              duration=round(duration, 2), object_x=round(ox, 4), object_y=round(oy, 4),
                              start_dx=round(offset[0], 4), start_dy=round(offset[1], 4),
-                             start_dz=round(offset[2], 4))
+                             start_dz=round(offset[2], 4),
+                             place_x=place[0] if place else None, place_y=place[1] if place else None)
         self.get_logger().info(f'[{self.label}] trial {i}: {result}')
         return result
 
