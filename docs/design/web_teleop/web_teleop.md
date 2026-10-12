@@ -43,6 +43,10 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - スライダー: x / y / z / pitch の絶対目標（`/teleop/ee_state` で同期）
 - キーボード: W/S=x±, A/D=y±, R/F=z±, T/G=pitch±, O/C=開/閉, H=ホーム, Space=録画トグル
 - ゲームパッド: 左スティック=xy, 右スティック上下=z, LB/RB=pitch, A=閉, B=開
+  - ブラウザが標準の配置（`mapping === 'standard'`）と判定したものだけを使い、最初に見えたときの軸の値を静止時の値として、そこからの変化を操作とする（`web/gamepad.js`）。
+    静止時に軸が ±1 を返す機器がつながっていると、何もしていないのに z が下がり続けた（2026-10-12）。認識状況は画面の「ゲームパッド」欄に出る
+  - テスト: `node --test test/js/gamepad.test.js`（pai_web_teleop 直下で実行）
+- `index.html` のスクリプトには `?v=日付` を付けている（ブラウザに古い app.js が残るのを防ぐ）。`web/` のスクリプトを変えたら上げる
 - ボタン: タスクリセット（`/task/reset` → ホーム → 開）、録画開始/停止、直前を破棄、方策 ON/OFF
 - 表示: IK 状態、関節角、録画状態、物体位置、タスク状態、方策状態
 

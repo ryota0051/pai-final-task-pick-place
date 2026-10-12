@@ -74,18 +74,17 @@
   window.addEventListener('blur', () => held.clear());
 
   const axis = (pos, neg) => (held.has(keyOf(pos)) ? 1 : 0) - (held.has(keyOf(neg)) ? 1 : 0);
-  const dz = (v) => (Math.abs(v) < cfg.gamepad_deadzone ? 0 : v);
-  let gpPrev = {};
+  // ゲームパッドは標準の配置のものだけを使い、静止時の値からの変化を操作とする（web/gamepad.js）
+  const gpReader = new GamepadReader(cfg.gamepad_deadzone);
   setInterval(() => {
     let vx = axis('x+', 'x-'), vy = axis('y+', 'y-'), vz = axis('z+', 'z-'), vp = axis('pitch+', 'pitch-');
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g) : null;
-    if (gp) {
-      vx += -dz(gp.axes[1]); vy += -dz(gp.axes[0]); vz += -dz(gp.axes[3] ?? 0);
-      vp += (gp.buttons[5]?.pressed ? 1 : 0) - (gp.buttons[4]?.pressed ? 1 : 0);
-      const a = gp.buttons[0]?.pressed, b = gp.buttons[1]?.pressed;
-      if (a && !gpPrev.a) setGripper(1);
-      if (b && !gpPrev.b) setGripper(0);
-      gpPrev = { a, b };
+    const g = gpReader.read(gp);
+    $('gamepad').textContent = gpReader.status;
+    if (g) {
+      vx += g.vx; vy += g.vy; vz += g.vz; vp += g.vp;
+      if (g.close) setGripper(1);
+      if (g.open) setGripper(0);
     }
     if (vx || vy || vz || vp) {
       velPub.publish({
