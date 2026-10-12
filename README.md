@@ -147,6 +147,7 @@ EVAL_ARGS="-p scene_randomization.enabled:=true" bash ~/final_task/scripts/sim/e
 ```bash
 cd ~/final_task/ros2_ws/src && python3 -m pytest -q crane_plus_kinematics pai_task_env pai_web_teleop   # ROS パッケージ
 cd ~/pai_training && pixi run --frozen test
+node --test ros2_ws/src/pai_web_teleop/test/js/gamepad.test.js   # ブラウザ UI のゲームパッド入力（ホストのリポジトリ直下で実行）
 ```
 
 ## 注意
