@@ -84,6 +84,54 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 - ホームは `[0.10, 0.0, 0.08]`、pitch 65°（作業範囲全域で IK 可能な傾き。task_env 設計書参照）
 - グリッパ閉指令は 0.30rad（4cm 物体で爪が接触する 0.19rad より約 1cm 押し込む）。根拠は task_env 設計書のグリッパ幾何
 
+## 人手デモの収録と操作時間の比較（手順）
+### A. ブラウザ UI でデモを収録する（20 回程度）
+1. 録画先を人手デモ用に分けてスタックを起動する（コンテナ内）
+   ```bash
+   WEB_TELEOP_ARGS="recorder_config:=$HOME/final_task/ros2_ws/install/pai_web_teleop/share/pai_web_teleop/config/recorder_human.yaml" ~/final_task/scripts/sim/start_stack.sh
+   ```
+2. 操作時間も測る場合は、別のターミナルで計測ノードを起動する（`~/dataset/teleop_time/browser.csv` に追記される）
+   ```bash
+   ros2 run pai_task_env episode_timer --ros-args --params-file ~/final_task/ros2_ws/src/pai_task_env/config/episode_timer.yaml -p label:=browser
+   ```
+3. ブラウザで <http://localhost:8080>（UI）と <http://localhost:6080>（Gazebo の画面）を開く。キー操作は UI のページをクリックしてから行う
+4. 1 回分の操作
+   1. 「タスクリセット」: 物体がランダムな位置に置かれ、腕がホームに戻る
+   2. 「録画開始」（Space）
+   3. 物体の真上へ: W/S で前後（x）、A/D で左右（y）
+   4. 下ろして掴む: F で下げる → C で閉じる
+   5. 持ち上げて運ぶ: R で上げる → W/S・A/D で青い置き場所の真上へ
+   6. 置く: F で下げる → O で開く → R で少し上げる
+   7. データ収集の欄の「タスク」が「成功」になったら「録画停止」（Space）
+   8. 失敗したら「録画停止」のあと「直前を破棄」（`_discarded/` へ移る）
+5. 4 を繰り返す。録画は `~/dataset/rosbags/pick_place_human/ep0, ep1, ...` に保存される
+
+コツ: 手先の速さは最大 8cm/s。pitch（T/G）は変えなくてよい。ゲームパッドでも操作できる（左スティック=xy、右スティック上下=z、A=閉、B=開）。
+
+### B. 関節キーボード（サンプルの操作方法）で操作時間を測る（5 回程度）
+関節キーボードは起動すると腕を「全関節 0（真っすぐ立てた姿勢）」へ動かすので、その姿勢になってから物体を置き直して計測を始める。
+1. ブラウザ側のテレオペを止める（有効なままだと指令がぶつかる）
+   ```bash
+   ros2 service call /teleop/enable std_srvs/srv/SetBool "{data: false}"
+   ```
+2. 計測ノードを `label:=keyboard` で起動する（`~/dataset/teleop_time/keyboard.csv`）
+   ```bash
+   ros2 run pai_task_env episode_timer --ros-args --params-file ~/final_task/ros2_ws/src/pai_task_env/config/episode_timer.yaml -p label:=keyboard
+   ```
+3. 対話できるターミナル（`docker exec -it -u ubuntu pai_final_task bash`）で関節キーボードを起動する
+   ```bash
+   ros2 run physicalai_teleop teleop_keyboard
+   ```
+   キー: Q/E で関節を選ぶ（joint1〜4）、W/S で選んだ関節を ±、R/F で全関節を ±（粗く）、O/C でグリッパ開/閉、X で全関節 0 に戻す、ESC で終了
+4. 腕が止まったら、別のターミナルで物体を置き直す（ここから計測が始まる）
+   ```bash
+   ros2 service call /task/reset std_srvs/srv/Trigger
+   ```
+5. 物体を掴んで置き場所に置く。「成功」になると計測ノードに時間が表示される。X で姿勢を戻し、4 から繰り返す
+6. 終わったら ESC で関節キーボードを止め、ブラウザ側のテレオペを戻す（`"{data: true}"`）
+
+計測は「リセット後に関節が動き始めてから成功まで」（`episode_timer`, task_env 仕様書）。
+
 ## 人手デモの録画先
 学習用のスクリプトデモ（`~/dataset/rosbags/pick_place`）と分けるため、人手テレオペは `config/recorder_human.yaml`
 （`~/dataset/rosbags/pick_place_human`）で録画する:
