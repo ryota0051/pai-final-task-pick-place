@@ -80,6 +80,7 @@ def main():
     grouped(cfg['start_robustness'], out / 'fig_start_robustness.png')
     bars(cfg['object_corruption'], out / 'fig_object_corruption.png', COLORS[1])
     grouped(cfg['detector_policy'], out / 'fig_detector_policy.png')
+    bars(cfg['human_demos'], out / 'fig_human_demos.png', COLORS[1])
 
 
 if __name__ == '__main__':
