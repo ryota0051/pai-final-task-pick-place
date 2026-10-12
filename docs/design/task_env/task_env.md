@@ -5,6 +5,7 @@
 ## 起動
 ```bash
 ros2 launch pai_task_env task_env.launch.py          # Gazebo + CRANE+ + 物体 + task_manager_node
+ros2 launch pai_task_env task_env.launch.py randomize_place:=true   # 置き場所もエピソードごとに変える（実験12, ADR 0009）
 ros2 launch pai_web_teleop web_teleop.launch.py      # テレオペ UI（別ターミナル）
 ```
 演習イメージの `crane_plus_with_table.launch.py` は world が `table.sdf` 固定のため、同等構成（ign gazebo / spawn / spawner / clock bridge）を
@@ -16,6 +17,7 @@ ros2 launch pai_web_teleop web_teleop.launch.py      # テレオペ UI（別タ�
   - 当初は 4cm 立方体だったが、手首ヨーの無い 4 軸アームでは base のヨー角で接近するため、世界軸に揃った立方体を対角で挟んでしまい把持できなかった（ヨー 0.6rad 以上で失敗）。向きに依らない円柱に変更
 - `place_zone`: 半径 3.5cm の可視マーカー（衝突なし・static）
 - 物体・置き場所の位置の正は `task.yaml`。起動時とリセット時に `ign service /world/default/set_pose` で上書きする
+  （置き場所は既定では固定。`randomize_place:=true` でリセットごとにサンプルする）
 
 ## 座標系
 観測・成功判定はすべて `crane_plus_base` 基準。world→base は `base_origin: [0, 0, 1.015]`, `base_yaw` で変換（`frames.BaseFrame`）。
@@ -26,14 +28,25 @@ ros2 launch pai_web_teleop web_teleop.launch.py      # テレオペ UI（別タ�
 | sub | `/task/object_odom` | nav_msgs/Odometry | ros_gz_bridge 経由の物体 world 姿勢 |
 | sub | `/joint_states` | JointState | 把持中心（FK）と手先関節角 |
 | pub | `/task/object_pose` | PoseStamped | 物体姿勢（crane_plus_base）。**学習の観測に使用** |
-| pub | `/task/place_pose` | PoseStamped | 置き場所 |
-| pub | `/task/status` | String(JSON) | lifted, in_place_zone, success, grasped, episode, object |
+| pub | `/task/place_pose` | PoseStamped | 置き場所（ランダム化時はリセットごとに変わる）。置き場所を観測に使うモデルの入力 |
+| pub | `/task/status` | String(JSON) | lifted, in_place_zone, success, grasped, episode, object, place |
 | pub | `/task/success` | Bool | 成功フラグ |
 | pub | `/task/gz/attach`, `/task/gz/detach` | Empty | 把持アシスト（bridge で Gazebo へ） |
-| srv | `/task/reset` | Trigger | 物体位置を再サンプル（detach → set_pose）、成功判定リセット |
+| srv | `/task/reset` | Trigger | 物体位置（と置き場所）を再サンプル（detach → set_pose）、成功判定リセット |
+| sub | `/task/reset_to` | Point | 評価用: 物体を指定位置に置いてリセット（置き場所は固定位置） |
+| sub | `/task/reset_to_scene` | Float64MultiArray | 評価用: [物体 x, y, 置き場所 x, y] に置いてリセット |
 
 ### 物体位置サンプリング（`sampler.ObjectSampler`）
 x/y 範囲から一様サンプルし、水平半径範囲 `r`（真下向き把持で IK 可能な範囲）と置き場所からの最小距離で棄却。`seed>=0` で再現可能。
+
+### 置き場所のランダム化（`sampler.PlaceSampler` / `sample_scene`, ADR 0009）
+- `place.randomize: true` または launch 引数 `randomize_place:=true` で有効（既定は固定 `place.xy`）
+  - launch 引数は別名のパラメータ `randomize_place` で渡す。ノード名指定のパラメータファイルはワイルドカード指定より優先されるため、
+    launch から `place.randomize` を上書きしても効かない
+- 置き場所を先に `place.sampler`（x: 0.04〜0.16, y: ±0.14, r: 0.09〜0.165）から引き、物体はそこから `min_dist_from_place` 以上離す
+- 置き場所の範囲は物体と同じ半径帯。0.5cm 間隔の 932 点すべてで、置く高さ 0.015〜0.035・運ぶ高さ 0.07〜0.09（pitch 65°）の IK が解ける
+- 成功判定の置き場所はリセットごとに `SuccessTracker.set_place` で更新する
+- 評価器（`policy_evaluator`）は `randomize_place:=true` で (物体 x, y, 置き場所 x, y) の固定リストを生成し、`/task/reset_to_scene` で置き直す
 
 ### 成功判定（`success_checker.SuccessTracker`）
 - pick: 物体が一度 `lift_height` 以上持ち上がり、その後置き場所半径内・テーブル上（z 許容差内）に `hold_time` 連続で静置
