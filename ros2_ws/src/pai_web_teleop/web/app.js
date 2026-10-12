@@ -1,6 +1,6 @@
 /* CRANE+ V2 Web Teleop: roslibjs で rosbridge に接続し、手先速度/目標・グリッパ・録画を操作する */
 (async () => {
-  const cfg = await (await fetch('config.json')).json();
+  const cfg = await (await fetch('config.json', { cache: 'no-store' })).json();   // 設定の変更をすぐ反映
   const params = new URLSearchParams(location.search);
   const wsUrl = params.get('ws') || `ws://${location.hostname || 'localhost'}:${cfg.rosbridge_port}`;
   const $ = (id) => document.getElementById(id);
@@ -75,7 +75,9 @@
 
   const axis = (pos, neg) => (held.has(keyOf(pos)) ? 1 : 0) - (held.has(keyOf(neg)) ? 1 : 0);
   // ゲームパッドは標準の配置のものだけを使い、静止時の値からの変化を操作とする（web/gamepad.js）
-  const gpReader = new GamepadReader(cfg.gamepad_deadzone);
+  const gpReader = new GamepadReader(cfg.gamepad_deadzone, cfg.gamepad_enabled);
+  $('gamepad-enable').checked = cfg.gamepad_enabled;
+  $('gamepad-enable').onchange = (e) => gpReader.setEnabled(e.target.checked);
   setInterval(() => {
     let vx = axis('x+', 'x-'), vy = axis('y+', 'y-'), vz = axis('z+', 'z-'), vp = axis('pitch+', 'pitch-');
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g) : null;

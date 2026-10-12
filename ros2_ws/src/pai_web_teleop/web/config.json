@@ -4,6 +4,7 @@
   "linear_speed": 0.05,
   "pitch_speed": 0.8,
   "gamepad_deadzone": 0.15,
+  "gamepad_enabled": false,
   "slider_ranges": {
     "x": [0.0, 0.26],
     "y": [-0.2, 0.2],
