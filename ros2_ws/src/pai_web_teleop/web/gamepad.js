@@ -4,20 +4,32 @@
 //   それ以外（ハンドル・ジョイスティック・トリガーを軸として出す機器など）は軸の意味が違うので無視する。
 // - 最初に見えたときの軸の値を「静止時の値」とし、そこからの変化だけを操作として扱う。
 //   静止時に軸が ±1 を返す機器で、操作していないのに腕が動き続ける問題への対策（2026-10-12）。
+// - スティックの値が少しずつ動く（ドリフトする）コントローラーもあるため、既定では使わない（setEnabled(true) で有効化）。
+//   有効にした瞬間の値を静止時の値として取り直す。
 (function (root) {
   class GamepadReader {
-    constructor(deadzone) {
+    constructor(deadzone, enabled = false) {
       this.deadzone = deadzone;
+      this.enabled = enabled;
       this.rest = null;      // 静止時の軸の値
       this.id = null;
       this.prev = {};
       this.status = 'なし';
     }
 
+    setEnabled(on) {
+      this.enabled = on;
+      this.rest = null;   // 次に読んだ値を静止時の値にする
+    }
+
     // gp: navigator.getGamepads() の 1 台。戻り値: {vx, vy, vz, vp, open, close} または null（使わない）
     read(gp) {
       if (!gp) {
         this.status = 'なし';
+        return null;
+      }
+      if (!this.enabled) {
+        this.status = `無効（検出: ${gp.id}）`;
         return null;
       }
       if (gp.mapping !== 'standard') {
