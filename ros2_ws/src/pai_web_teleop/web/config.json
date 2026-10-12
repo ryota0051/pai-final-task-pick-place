@@ -12,8 +12,8 @@
     "pitch": [-0.5, 1.5708]
   },
   "keys": {
-    "x+": "w", "x-": "s",
-    "y+": "a", "y-": "d",
+    "x+": ["w", "ArrowUp"], "x-": ["s", "ArrowDown"],
+    "y+": ["a", "ArrowLeft"], "y-": ["d", "ArrowRight"],
     "z+": "r", "z-": "f",
     "pitch+": "t", "pitch-": "g",
     "open": "o", "close": "c",

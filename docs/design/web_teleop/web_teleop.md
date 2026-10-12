@@ -41,13 +41,15 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 
 ## UI（`web/`、設定は `web/config.json`）
 - スライダー: x / y / z / pitch の絶対目標（`/teleop/ee_state` で同期）
-- キーボード: W/S=x±, A/D=y±, R/F=z±, T/G=pitch±, O/C=開/閉, H=ホーム, Space=録画トグル
+- キーボード: W/S または ↑/↓=x±（前後）, A/D または ←/→=y±（左右）, R/F=z±, T/G=pitch±, O/C=開/閉, H=ホーム, Space=録画トグル
+  - 割り当ては `config.json` の `keys`（1 つの動作に複数のキーを配列で指定可。`web/keys.js`, テスト `test/js/keys.test.js`）。
+    矢印キー・Space はページのスクロールを止める。スライダーにフォーカスがあるときはスライダーの操作を優先する
 - ゲームパッド: 左スティック=xy, 右スティック上下=z, LB/RB=pitch, A=閉, B=開
   - ブラウザが標準の配置（`mapping === 'standard'`）と判定したものだけを使い、最初に見えたときの軸の値を静止時の値として、そこからの変化を操作とする（`web/gamepad.js`）。
     静止時に軸が ±1 を返す機器がつながっていると、何もしていないのに z が下がり続けた（2026-10-12）。認識状況は画面の「ゲームパッド」欄に出る
   - **既定では使わない**（`config.json` の `gamepad_enabled: false`）。画面の「ゲームパッド: 使う」にチェックしたときだけ読み、その瞬間の値を静止時の値にする。
     PS4 コントローラー（DUALSHOCK 4）で右スティックが触らなくても少しずつ動き（ドリフト）、基準を取っても z が下がったため（2026-10-12）
-  - テスト: `node --test test/js/gamepad.test.js`（pai_web_teleop 直下で実行）
+  - テスト: `node --test test/js/gamepad.test.js test/js/keys.test.js`（pai_web_teleop 直下で実行）
 - `index.html` のスクリプトには `?v=日付` を付けている（ブラウザに古い app.js が残るのを防ぐ）。`web/` のスクリプトを変えたら上げる
 - ボタン: タスクリセット（`/task/reset` → ホーム → 開）、録画開始/停止、直前を破棄、方策 ON/OFF
 - 表示: IK 状態、関節角、録画状態、物体位置、タスク状態、方策状態
@@ -104,9 +106,9 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 4. 1 回分の操作
    1. 「タスクリセット」: 物体がランダムな位置に置かれ、腕がホームに戻る
    2. 「録画開始」（Space）
-   3. 物体の真上へ: W/S で前後（x）、A/D で左右（y）
+   3. 物体の真上へ: ↑/↓（または W/S）で前後（x）、←/→（または A/D）で左右（y）
    4. 下ろして掴む: F で下げる → C で閉じる
-   5. 持ち上げて運ぶ: R で上げる → W/S・A/D で青い置き場所の真上へ
+   5. 持ち上げて運ぶ: R で上げる → 矢印キー（または W/S・A/D）で青い置き場所の真上へ
    6. 置く: F で下げる → O で開く → R で少し上げる
    7. データ収集の欄の「タスク」が「成功」になったら「録画停止」（Space）
    8. 失敗したら「録画停止」のあと「直前を破棄」（`_discarded/` へ移る）
