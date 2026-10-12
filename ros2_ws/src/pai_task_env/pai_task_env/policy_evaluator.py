@@ -86,6 +86,9 @@ class PolicyEvaluator(Node):
                 get_package_share_directory('pai_task_env'), 'config', 'domain_randomization.yaml')
             with open(dr_cfg, encoding='utf-8') as f:
                 rnd = yaml.safe_load(f)['dr_dataset_generator']['ros__parameters']['randomize']
+            # 置き場所の色も変えるのは置き場所を検出する評価のときだけ（従来の評価条件を変えない）
+            if not p('scene_randomization.place', False).value:
+                rnd = {k: v for k, v in rnd.items() if k != 'place'}
             self.randomizer = SceneRandomizer(rnd)
             self.randomizer.setup()
             self.scene_rng = random.Random(p('scene_randomization.seed', 0).value)
@@ -189,7 +192,12 @@ class PolicyEvaluator(Node):
         if self.randomizer is None:
             return
         xy = self.positions[i][:2] if self.positions is not None else (self.obj.x, self.obj.y)
-        scene, box_ids = self.randomizer.sample(self.scene_rng, xy)
+        place = None
+        if self.positions is not None and len(self.positions[i]) == 4:
+            place = self.positions[i][2:]
+        elif self.randomize_place and self.status.get('place'):
+            place = self.status['place']
+        scene, box_ids = self.randomizer.sample(self.scene_rng, xy, place)
         self.randomizer.apply(scene, box_ids)
 
     def perturb_start(self, i):

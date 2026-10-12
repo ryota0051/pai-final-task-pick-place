@@ -30,3 +30,13 @@ def test_light_call_keeps_original_range_and_attenuation():
     s, t, req = SceneRandomizer(CFG).light_call(0.8, (-0.5, 0.1, -0.9))
     assert s.endswith('/light_config')
     assert 'range: 1000' in req and 'attenuation_constant: 0.9' in req and 'intensity: 1' in req
+
+
+def test_sample_passes_place_to_scene_sampler():
+    cfg = {**CFG, 'place': {'saturation': [0.4, 1.0], 'value': [0.45, 1.0]},
+           'distractors': {**CFG['distractors'], 'min_dist_place': 0.09}}
+    import math
+    for seed in range(20):
+        scene, _ = SceneRandomizer(cfg).sample(random.Random(seed), (0.12, 0.0), place_xy=(0.06, -0.12))
+        assert scene.place_rgb is not None
+        assert all(math.dist(d.xy, (0.06, -0.12)) >= 0.09 for d in scene.distractors)

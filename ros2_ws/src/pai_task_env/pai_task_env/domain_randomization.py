@@ -9,7 +9,7 @@ import colorsys
 import math
 import random
 from dataclasses import dataclass, field
-from typing import List, Mapping, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -61,23 +61,29 @@ class SceneParams:
     light_intensity: float
     light_direction: Tuple[float, float, float]
     distractors: Tuple[Distractor, ...] = field(default_factory=tuple)
+    place_rgb: Optional[Tuple[float, float, float]] = None   # 置き場所の色（設定に place があるときだけ変える）
 
 
 class SceneSampler:
     def __init__(self, cfg: Mapping):
         self.cfg = cfg
 
-    def _color(self, rng: random.Random) -> Tuple[float, float, float]:
-        o = self.cfg['object']
+    def _color(self, rng: random.Random, key: str = 'object') -> Tuple[float, float, float]:
+        o = self.cfg[key]
         return hsv_to_rgb(rng.random(), rng.uniform(*o['saturation']), rng.uniform(*o['value']))
 
-    def sample(self, rng: random.Random, object_xy: Sequence[float]) -> SceneParams:
+    def sample(self, rng: random.Random, object_xy: Sequence[float],
+               place_xy: Optional[Sequence[float]] = None) -> SceneParams:
+        """place_xy を渡すと、ダミーの箱を置き場所から min_dist_place（既定は min_dist）以上離す."""
         d = self.cfg['distractors']
+        min_dist_place = d.get('min_dist_place', d['min_dist'])
         placed: List[Distractor] = []
         for _ in range(rng.randint(*d['count'])):
             for _try in range(100):
                 xy = (rng.uniform(*d['x']), rng.uniform(*d['y']))
                 if math.dist(xy, object_xy) < d['min_dist']:
+                    continue
+                if place_xy is not None and math.dist(xy, place_xy) < min_dist_place:
                     continue
                 if any(math.dist(xy, q.xy) < d['min_dist'] for q in placed):
                     continue
@@ -86,13 +92,17 @@ class SceneSampler:
         tilt = rng.uniform(0.0, self.cfg['light']['max_tilt'])
         az = rng.uniform(-math.pi, math.pi)
         direction = (math.sin(tilt) * math.cos(az), math.sin(tilt) * math.sin(az), -math.cos(tilt))
-        return SceneParams(
+        # 置き場所の色は最後に引く（設定に place がない場合と、ほかの値の乱数列を変えないため）
+        params = dict(
             object_rgb=self._color(rng),
             table_tint=tuple(rng.uniform(*self.cfg['table_tint']) for _ in range(3)),
             light_intensity=rng.uniform(*self.cfg['light']['intensity']),
             light_direction=direction,
             distractors=tuple(placed),
         )
+        if 'place' in self.cfg:
+            params['place_rgb'] = self._color(rng, 'place')
+        return SceneParams(**params)
 
 
 def bbox_center_to_position(cam: CameraModel, center_uv: Sequence[float], radius: float, height: float,
