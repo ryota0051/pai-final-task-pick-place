@@ -59,21 +59,25 @@
   });
 
   // ---- キーボード / ゲームパッドによる速度指令 ----
-  const held = new Set();
-  const keyOf = (name) => cfg.keys[name];
+  // キーは config.json の keys（1 つの動作に複数のキーを割り当て可。web/keys.js）
+  const keys = new KeyBindings(cfg.keys);
+  const heldKeys = new Set();   // 押しているキー（小文字）
   window.addEventListener('keydown', (e) => {
-    const k = e.key.toLowerCase();
-    if (e.target.tagName === 'INPUT') return;
-    if (k === keyOf('record')) { e.preventDefault(); if (!e.repeat) toggleRecord(); return; }
-    if (k === keyOf('open')) setGripper(0);
-    else if (k === keyOf('close')) setGripper(1);
-    else if (k === keyOf('home')) callTrigger(cfg.services.home);
-    held.add(k);
+    // スライダーなどの入力欄の操作は邪魔しない（チェックボックスは除く）
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') return;
+    const action = keys.actionOf(e.key);
+    if (!action) return;
+    e.preventDefault();   // 矢印キー・Space でページがスクロールしないように
+    if (action === 'record') { if (!e.repeat) toggleRecord(); return; }
+    if (action === 'open') setGripper(0);
+    else if (action === 'close') setGripper(1);
+    else if (action === 'home') callTrigger(cfg.services.home);
+    heldKeys.add(e.key.toLowerCase());
   });
-  window.addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
-  window.addEventListener('blur', () => held.clear());
+  window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
+  window.addEventListener('blur', () => heldKeys.clear());
+  const axis = (pos, neg) => keys.axis(new Set([...heldKeys].map((k) => keys.actionOf(k))), pos, neg);
 
-  const axis = (pos, neg) => (held.has(keyOf(pos)) ? 1 : 0) - (held.has(keyOf(neg)) ? 1 : 0);
   // ゲームパッドは標準の配置のものだけを使い、静止時の値からの変化を操作とする（web/gamepad.js）
   const gpReader = new GamepadReader(cfg.gamepad_deadzone, cfg.gamepad_enabled);
   $('gamepad-enable').checked = cfg.gamepad_enabled;
