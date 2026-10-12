@@ -21,7 +21,7 @@ pixi run --frozen infer --config configs/pick/infer_objpos.yaml
 | pub | `/policy/status` | enabled, ready, step, latency_ms, predicted, device（ブラウザ UI に表示） |
 | srv | `/policy/enable` (SetBool) | 有効化時に `policy.reset()` |
 | srv | `/policy/reset` (Trigger) | |
-| rerun | web 9877 / gRPC 9876 | 実関節角・指令・予測チャンク・物体位置・レイテンシ |
+| rerun | web 9877 / gRPC 9876（ブラウザで `http://localhost:9877/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy`） | 実関節角・指令・予測チャンク・物体位置・レイテンシ |
 
 `start_enabled: false` のため、ブラウザ UI の「方策 ON」（テレオペを無効化して方策を有効化）か評価スクリプトから開始する。
 

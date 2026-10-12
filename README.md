@@ -88,7 +88,7 @@ cd ~/pai_training && pixi install                    # 初回のみ
 ```
 - Gazebo の画面: http://localhost:6080 （noVNC）
 - テレオペ UI: http://localhost:8080
-- 推論の可視化（rerun）: http://localhost:9877
+- 推論の可視化（rerun。推論ノードの起動後）: <http://localhost:9877/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy>（`?url=` 以降も必要。`http://localhost:9877` だけだと rerun の紹介画面になる）
 
 ### デモの収集
 - スクリプトデモ（IK で計画した軌道。**学習データは全てこれで生成**。固定開始 117 ＋ 開始姿勢ばらつき 118 の計 235 エピソード）:
@@ -107,7 +107,9 @@ pixi run --frozen convert --config configs/pick/conversion_objpos_startrand.yaml
 pixi run --frozen train --config configs/pick/train_objpos_startrand.yaml                      # ACT 学習（GPU, 60k step で約 1 時間）
 pixi run --frozen infer --config configs/pick/infer_objpos_startrand.yaml                      # 推論ノード（物体位置は真値）
 pixi run --frozen infer --config configs/pick/infer_objpos_startrand_camera.yaml               # 推論ノード（俯瞰カメラで推定した物体位置）
+pixi run --frozen check-dataset --dataset-root ~/dataset/lerobot_dataset/crane_plus_pick_objpos_startrand --split 117   # 変換したデータの検査
 ```
+変換したデータセットを rerun で目で確認する手順は [docs/design/dataset/conversion.md](docs/design/dataset/conversion.md) を参照してください。
 推論ノードの起動後、テレオペ UI（<http://localhost:8080>）で「タスクリセット」→ 腕が止まったら「方策 ON」で自律実行します（手順と注意点は [docs/design/web_teleop/web_teleop.md](docs/design/web_teleop/web_teleop.md#ブラウザ-ui-で学習済みモデルを動かす自律実行)）。
 
 自動評価（物体配置を固定して真値 / カメラ推定を比較）:
