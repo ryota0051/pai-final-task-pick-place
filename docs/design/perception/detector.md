@@ -108,8 +108,19 @@ EVAL_ARGS="-p scene_randomization.enabled:=true" bash ~/final_task/scripts/sim/e
 | 置き場所 | 293/300 | 0.47mm | 0.94mm | 96.3%（誤検出 4 枚） |
 | 参考: 赤色検出（物体） | 11/300 | 70.9mm | 201.7mm | 1.3% |
 
-### 方策での評価
-（実験12 の評価結果を記録予定）
+### 方策での評価（実験12）
+置き場所もランダムに変えた配置固定 30 か所。モデルは物体位置をグリッパが閉じている間は固定する改良 A'（詳細は docs/design/training_eval/training_eval.md 実験12）。
+
+| シーン | 位置の推定 | 成功率 |
+|---|---|---|
+| 元のシーン | 真値 | 29/30 |
+| 元のシーン | 学習した検出器（2 クラス） | 28/30 |
+| 見た目をランダム化（物体・置き場所の色、机、照明、箱） | 学習した検出器（2 クラス） | 28/30 |
+
+- 物体位置を固定しないモデルでは 26/30・24/30 だった。掴むとグリッパが物体を隠し、一部が隠れた状態の推定値（最大 100mm のずれ）が保持されていたため
+- 検出ノードは採用した検出の直近 3 回の中央値を出す（`median_window: 3`）
+- 起動: `TASK_ENV_ARGS="randomize_place:=true red_detector:=false" start_stack.sh` → `detect-node --config configs/detection/detect_rtdetr_v2.yaml`
+  → `bash ~/final_task/scripts/sim/eval_placerand_latch.sh`
 
 ## 限界
 - シミュレーション画像だけで学習しているため、実機の画像での動作は保証しない（主張は「実機に近い見た目の変化に頑健」まで）
