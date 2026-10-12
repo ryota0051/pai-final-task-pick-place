@@ -45,8 +45,9 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 ```bash
 cd ~/pai_training
 pixi run --frozen python scripts/visualize_dataset.py --repo-id crane_plus_pick_objpos   --root ~/dataset/lerobot_dataset/crane_plus_pick_objpos_startrand --episode-index 0 --save 1 --output-dir ~/dataset/analysis/rrd --num-workers 0
-pixi run --frozen rerun --serve-web --web-viewer-port 9877 --port 9876 ~/dataset/analysis/rrd/*.rrd   # http://localhost:9877
+pixi run --frozen rerun --serve-web --web-viewer-port 9877 --port 9876 ~/dataset/analysis/rrd/*.rrd
 ```
+- ブラウザで `http://localhost:9877/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy` を開く（`?url=` を付けないと rerun の紹介画面になり、データにつながらない）
 - サンプルの `visualize_dataset.py` は関節角と指令を添字で出すだけで物体位置を出さなかったため、関節ごとに指令（action）と関節角（state）を重ね、
   物体位置（`observation.environment_state`）も別のグラフに出すよう改修（`pai_training.visualization`）
 - 左の Recordings で表示するエピソードを選ぶ
