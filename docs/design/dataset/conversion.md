@@ -39,3 +39,28 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 4. サンプリング時刻を `linspace(start, end, n, endpoint=False)` に（フレーム間隔を 1/fps に揃える）
 5. 出力先の上書き確認を `--overwrite` で省略可能に（自動化のため）
 6. `_` で始まるディレクトリ（`_discarded` など）は変換対象外
+
+## データセットの確認（2026-10-12）
+### rerun での目視
+```bash
+cd ~/pai_training
+pixi run --frozen python scripts/visualize_dataset.py --repo-id crane_plus_pick_objpos   --root ~/dataset/lerobot_dataset/crane_plus_pick_objpos_startrand --episode-index 0 --save 1 --output-dir ~/dataset/analysis/rrd --num-workers 0
+pixi run --frozen rerun --serve-web --web-viewer-port 9877 --port 9876 ~/dataset/analysis/rrd/*.rrd   # http://localhost:9877
+```
+- サンプルの `visualize_dataset.py` は関節角と指令を添字で出すだけで物体位置を出さなかったため、関節ごとに指令（action）と関節角（state）を重ね、
+  物体位置（`observation.environment_state`）も別のグラフに出すよう改修（`pai_training.visualization`）
+- 左の Recordings で表示するエピソードを選ぶ
+
+### 全エピソードの数値検査（`pixi run --frozen check-dataset --dataset-root ... --split 117`）
+最終モデルの学習データ（固定開始 117 ＋ 開始姿勢ばらつき 118 = 235 エピソード）:
+
+| 項目 | 結果 | 判断 |
+|---|---|---|
+| 指令に対する関節角の遅れ | 8〜10 フレーム（0.4〜0.5 秒）で全エピソードほぼ一定 | 時刻ずれ・関節の取り違えなし（コントローラの追従遅れ） |
+| 把持の指令までに物体が動いた量 | 最大 0.8mm（ep153。他は 0.01mm 未満） | 物体位置は観測に正しく入っている |
+| 末尾（延長部分）の指令の変化 | 最大 0.003 | 最終フレームで正しく延長されている |
+| グリッパの閉指令から閉じ始めるまで | 1〜2 フレーム | 把持の時刻のずれなし |
+| 最後の物体位置と置き場所の中心の距離 | 平均 3.5mm、最大 18.6mm（置き場所の半径 35mm 以内） | 全エピソードで置けている |
+| 開始姿勢の標準偏差 | 固定開始 約 0.005rad、開始姿勢ばらつき 0.13〜0.22rad | ばらつきが意図どおり入っている |
+
+結論: 変換は意図どおりで、学習データに問題は見つからなかった。
