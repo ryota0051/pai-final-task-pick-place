@@ -5,6 +5,9 @@
 
 Usage:
     ros2 run pai_task_env scripted_demo --ros-args --params-file <scripted_demo.yaml> -p episodes:=30
+    # 物体・置き場所の位置を指定する（弱い領域の調査・狙った収録。タスク環境は randomize_place:=true）
+    ros2 run pai_task_env scripted_demo --ros-args --params-file <scripted_demo.yaml> \
+        -p "positions:=[ox0, oy0, px0, py0, ox1, ...]"
 """
 from __future__ import annotations
 
@@ -16,9 +19,11 @@ import time
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
-from std_msgs.msg import Float64, String
+from rclpy.parameter import Parameter
+from std_msgs.msg import Float64, Float64MultiArray, String
 from std_srvs.srv import Trigger
 
+from pai_task_env.evaluation import parse_positions
 from pai_task_env.scripted_policy import PickPlacePlan, PlanParams, Waypoint, random_start_offset
 
 
@@ -42,6 +47,7 @@ class ScriptedDemo(Node):
             move_speed=p('plan.move_speed', 0.05).value,
             min_segment_time=p('plan.min_segment_time', 0.5).value,
             grasp_hold=p('plan.grasp_hold', 0.8).value,
+            grasp_settle=p('plan.grasp_settle', 0.0).value,
             release_hold=p('plan.release_hold', 0.6).value,
         )
         self.speed_scale = tuple(p('randomize.speed_scale', [0.8, 1.2]).value)
@@ -51,6 +57,12 @@ class ScriptedDemo(Node):
         self.start_offset = list(p('randomize.start_offset', [0.0, 0.0, 0.0]).value)
         self.start_move_time = p('randomize.start_move_time', 1.5).value
         self.verbose = p('verbose', False).value
+        # 物体・置き場所の位置の指定 [物体 x, y, 置き場所 x, y, ...]。指定時は /task/reset の代わりに
+        # /task/reset_to_scene で置き、エピソード数は位置の数になる
+        self.positions = parse_positions(p('positions', Parameter.Type.DOUBLE_ARRAY).value or [], width=4)
+        if self.positions:
+            self.episodes = len(self.positions)
+        self.reset_scene_pub = self.create_publisher(Float64MultiArray, '/task/reset_to_scene', 10)
 
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
         self.gripper_pub = self.create_publisher(Float64, '/teleop/gripper', 10)
@@ -105,10 +117,23 @@ class ScriptedDemo(Node):
             self.spin_for(1.0 / self.rate)
         self.spin_for(self.settle_time)
 
+    def reset(self, idx: int) -> bool:
+        if not self.positions:
+            return self.call('/task/reset')
+        before = self.latest.get('status', {}).get('episode')
+        self.reset_scene_pub.publish(Float64MultiArray(data=[float(v) for v in self.positions[idx]]))
+        end = time.monotonic() + 5.0
+        while time.monotonic() < end:
+            self.spin_for(0.05)
+            if self.latest.get('status', {}).get('episode') != before:
+                return True
+        self.get_logger().warn(f'reset_to_scene timed out: {self.positions[idx]}')
+        return False
+
     def run_episode(self, idx: int) -> bool:
         self.call('/teleop/home')
         self.spin_for(self.settle_time)
-        if not self.call('/task/reset'):
+        if not self.reset(idx):
             return False
         self.latest.pop('obj', None)
         self.latest.pop('place', None)   # 置き場所もランダム化する場合に古い位置で計画しないよう、リセット後の値を待つ
@@ -154,7 +179,7 @@ class ScriptedDemo(Node):
                 self.call('/recorder/discard_last')
         self.get_logger().info(
             f'episode {idx}: success={success} duration={plan.total_duration:.1f}s '
-            f'object=({o.x:.3f}, {o.y:.3f})')
+            f'object=({o.x:.3f}, {o.y:.3f}) place=({pl.x:.3f}, {pl.y:.3f})')
         return success
 
 
