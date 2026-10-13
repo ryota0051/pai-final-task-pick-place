@@ -57,6 +57,13 @@ clips:
     positions: [0.12, 0.03]
     overhead: true            # GUI はランダム化した照明で暗く映るため、俯瞰カメラ（検出器の入力）の映像を使う
     args: ['-p', 'observe.enabled:=true', '-p', 'scene_randomization.enabled:=true', '-p', 'scene_randomization.seed:=22670']
+  place_random:             # 拡張: 置き場所も毎回変える。最終モデル（掴んでいる間は物体位置を固定）を 2 クラスの検出器で動かす
+    # 環境は TASK_ENV_ARGS="randomize_place:=true red_detector:=false" で起動し、
+    # 検出ノード（configs/detection/detect_rtdetr_v2.yaml）を別途起動しておく。配置は実験12 の評価（seed 0）の試行 0, 6, 10
+    kind: eval
+    infer_config: configs/pick/infer_objpos_placerand_latch_learned.yaml
+    positions: [0.1137, -0.0134, 0.1413, 0.0722, 0.106, 0.0967, 0.1441, -0.0717, 0.1569, -0.0267, 0.0444, -0.1339]
+    args: ['-p', 'randomize_place:=true', '-p', 'observe.enabled:=true']
 
 # ---- タイムライン ----
 # card: 文字だけの画面 / image: 画像＋字幕 / clip: 素材の切り出し（trials: 何試行目か。方策 ON の 0.5 秒前から成功の 1 秒後まで）
@@ -74,4 +81,6 @@ timeline:
   - {type: image, image: detector_examples.png, duration: 5, caption: "物体の色・照明・机・ダミーの箱を変えた画像で物体検出器（RT-DETRv2）を学習（黄枠: 検出結果。赤×: 赤色検出は赤い物体しか見つけられない）"}
   - {type: compare, left: dr_red_overhead, right: dr_learned_overhead, trials: [0], speed: 2, max_seconds: 14, panel_height: 480, tail: 0.2, left_label: "赤色検出", right_label: "学習した物体検出器", caption: "俯瞰カメラの映像（検出器への入力）: 赤色検出は青い物体を見つけられず掴めない。学習した検出器は掴める（見た目を変えた 30 試行で 3% → 100%）"}
   - {type: image, image: fig_start_robustness.png, duration: 6, caption: "物体配置を固定した 30 試行で評価: 開始姿勢を ±3cm ずらしても 100%（カメラ推定でも 97%）"}
-  - {type: card, duration: 6, title: "まとめ", lines: ["成功率 10%（サンプル）→ 100%（物体位置は真値・カメラ推定とも）", "評価で弱点を見つけ、記録から原因を突き止めて改善", "物体の色・照明が変わっても学習した物体検出器で成功（3% → 100%）", "コード: github.com/ryota0051/pai-final-task-pick-place"]}
+  - {type: clip, clip: place_random, trials: [0, 1, 2], speed: 2, caption: "拡張: 置き場所（青い円）も毎回変える。物体と置き場所の両方を学習した検出器で見つけ、置き場所の位置も観測して運ぶ"}
+  - {type: image, image: fig_place_random.png, duration: 5, caption: "置き場所を観測しない従来モデルは、置き場所が変わると 3%。新しいモデルは 97%（検出器で 93%、見た目を変えても 93%）"}
+  - {type: card, duration: 6, title: "まとめ", lines: ["成功率 10%（サンプル）→ 100%（物体位置は真値・カメラ推定とも）", "評価で弱点を見つけ、記録から原因を突き止めて改善", "物体の色・照明が変わっても学習した物体検出器で成功（3% → 100%）", "置き場所も毎回変える拡張: 検出器で物体と置き場所を見て 93%","コード: github.com/ryota0051/pai-final-task-pick-place"]}
