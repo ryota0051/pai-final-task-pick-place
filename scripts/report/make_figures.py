@@ -81,6 +81,8 @@ def main():
     bars(cfg['object_corruption'], out / 'fig_object_corruption.png', COLORS[1])
     grouped(cfg['detector_policy'], out / 'fig_detector_policy.png')
     bars(cfg['human_demos'], out / 'fig_human_demos.png', COLORS[1])
+    grouped(cfg['place_random'], out / 'fig_place_random.png')
+    grouped(cfg['place_detector'], out / 'fig_place_detector.png')
 
 
 if __name__ == '__main__':

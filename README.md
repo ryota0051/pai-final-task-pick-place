@@ -21,6 +21,17 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 | 赤色検出 | 3%（1/30） |
 | **学習した物体検出器（RT-DETRv2）** | **100%**（30/30） |
 
+拡張: **置き場所（ゴール）も毎回変える**（物体と置き場所の組を固定した 30 か所。[ADR 0009](docs/decision/0009-置き場所のランダム化と検出.md)）:
+
+| モデル | 位置の推定 | 置き場所固定 | 置き場所も毎回変える |
+|---|---|---|---|
+| 最終版（置き場所を観測しない） | 真値 | 100%（30/30） | 3%（1/30） |
+| **置き場所も観測するモデル** | 真値 | 93%（28/30） | **97%**（29/30） |
+| **置き場所も観測するモデル** | 学習した検出器（物体・置き場所の 2 クラス） | - | **93%**（28/30） |
+| **置き場所も観測するモデル** | 学習した検出器、見た目も毎回変える | - | **93%**（28/30） |
+
+掴んでいる間は物体の観測を固定しています（掴むとグリッパが物体を隠し、検出器の推定値がずれたまま残るため。固定しないと検出器で 87%・80%）。
+
 詳細な実験記録（学習量・データ量・temporal ensembling・観測劣化への頑健性・失敗原因の分析・開始姿勢への頑健性）は
 [docs/design/training_eval/training_eval.md](docs/design/training_eval/training_eval.md)、物体検出器は
 [docs/design/perception/detector.md](docs/design/perception/detector.md) を参照してください。
@@ -34,6 +45,7 @@ Gazebo 上での自律実行の成功率（改良版は物体の配置を固定�
 | 毎回同じ動作で、観測が関節角のみ | 物体位置をエピソードごとにランダム化し、観測に物体位置を追加 |
 | 物体位置が既知の前提 | 俯瞰カメラの画像から物体位置を推定し、真値なしで自律実行 |
 | 赤い物体・一定の照明でしか物体を見つけられない | 物体色・照明・机・ダミー物体をランダムに変えた Gazebo 画像（自動ラベル付き）で物体検出器 RT-DETRv2（Apache-2.0）を学習。見た目を変えたシーンで成功率 3% → 100%（[詳細](docs/design/perception/detector.md)） |
+| 置き場所がいつも同じ | 置き場所もランダムに変え、観測に置き場所の位置を追加。物体検出器を物体・置き場所の 2 クラスに拡張（置き場所も変えて 93〜97%） |
 | 学習・推論が CPU 前提 | Docker に GPU を渡して学習・推論（RTX 4090 で約 50ms/step、60k step で約 1 時間） |
 | 評価が目視・オフライン比較のみ | 成功判定・自動評価（Wilson 信頼区間、配置固定の比較）、rerun での推論の可視化、rosbag による失敗解析 |
 | 行動チャンクの先頭だけを実行 | ACT の temporal ensembling で実行時の誤差の蓄積を抑制（成功率 55% → 100%） |
@@ -135,6 +147,21 @@ pixi run --frozen detect-node --config configs/detection/detect_rtdetr.yaml &
 pixi run --frozen infer --config configs/pick/infer_objpos_startrand_camera.yaml
 # 見た目を毎回変えて評価する
 EVAL_ARGS="-p scene_randomization.enabled:=true" bash ~/final_task/scripts/sim/eval_paired.sh 0 30 learned:configs/pick/infer_objpos_startrand_camera.yaml
+```
+
+### 置き場所も毎回変える（[ADR 0009](docs/decision/0009-置き場所のランダム化と検出.md)）
+```bash
+# タスク環境を置き場所ランダムで起動し、デモを収録（録画先は recorder_placerand.yaml）
+TASK_ENV_ARGS="randomize_place:=true" WEB_TELEOP_ARGS="recorder_config:=$HOME/final_task/ros2_ws/install/pai_web_teleop/share/pai_web_teleop/config/recorder_placerand.yaml"   ~/final_task/scripts/sim/start_stack.sh
+bash ~/final_task/scripts/sim/collect_placerand.sh 200 200
+# 変換・学習（~/pai_training）。物体位置はグリッパが閉じている間は固定する（object_xyz_latched）
+pixi run --frozen python scripts/rosbag2lerobot.py --config configs/pick/conversion_objpos_placerand_latch.yaml
+pixi run --frozen python scripts/train.py --config configs/pick/train_objpos_placerand_latch.yaml
+# 2 クラスの検出器: データ生成は dr_dataset_generator に -p place.enabled:=true、学習は configs/detection/train_rtdetr_v2.yaml
+# 評価: 赤色検出を止めて起動し、2 クラスの検出ノードを動かしてから、真値・検出器・見た目ランダム化の 3 条件を続けて評価
+TASK_ENV_ARGS="randomize_place:=true red_detector:=false" ~/final_task/scripts/sim/start_stack.sh
+pixi run --frozen detect-node --config configs/detection/detect_rtdetr_v2.yaml &
+bash ~/final_task/scripts/sim/eval_placerand_latch.sh
 ```
 
 ### 説明資料（PDF）・動画
