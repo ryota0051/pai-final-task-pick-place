@@ -30,8 +30,15 @@ task_manager_node:
       max_attempts: 1000
 
     place:
-      xy: [0.10, -0.12]
-      radius: 0.035
+      xy: [0.10, -0.12]             # randomize: false のときの固定位置
+      radius: 0.035                 # 成功判定の半径（world SDF の place_zone の見た目と一致）
+      # 置き場所もエピソードごとにランダムに変える（launch 引数 randomize_place:=true で有効化）。
+      # 置き場所を先に決め、物体は sampler の範囲内でそこから min_dist_from_place 以上離す
+      randomize: false
+      sampler:
+        x: [0.04, 0.16]
+        y: [-0.14, 0.14]            # 俯瞰カメラの視野（y ±0.25m）に収まる
+        r: [0.09, 0.165]            # 物体と同じ半径帯（z_carry〜z_place で IK 可能）
 
     # 把持アシスト（Ignition では摩擦把持が滑落するため DetachableJoint で固定する。ADR 0006）
     hand_joint_name: crane_plus_joint_hand

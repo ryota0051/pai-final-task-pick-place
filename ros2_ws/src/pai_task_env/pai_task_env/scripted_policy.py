@@ -31,6 +31,9 @@ class PlanParams:
     move_speed: float = 0.05        # [m/s]
     min_segment_time: float = 0.5   # [s]
     grasp_hold: float = 0.8         # 閉じてから持ち上げるまで [s]
+    # 下降後、開いたまま待ってから閉じる [s]。腕は指令に遅れて追従するので、目標高さに着いた瞬間に閉じると
+    # 実際はまだ 2〜3cm 上を下降中で、水平にずれていると指が物体を押し出す（左前で失敗が集中した原因, 2026-10-13）。0 で従来どおり
+    grasp_settle: float = 0.0
     release_hold: float = 0.6       # 開いてから退避するまで [s]
 
     def randomized(self, rng: random.Random, speed_scale: Tuple[float, float],
@@ -88,6 +91,8 @@ class PickPlacePlan:
         px, py = place_xy
         move('approach', ox, oy, p.z_approach, 0.0)
         move('descend', ox, oy, p.z_grasp, 0.0)
+        if p.grasp_settle > 0:
+            hold('settle', 0.0, p.grasp_settle)
         hold('grasp', 1.0, p.grasp_hold)
         move('lift', ox, oy, p.z_carry, 1.0)
         move('carry', px, py, p.z_carry, 1.0)

@@ -1,4 +1,4 @@
-"""Gazebo のシーンをランダム化する（物体色・机の色味・照明・ダミーの箱）. 検出器の学習データ生成と方策評価で共用（ADR 0008）.
+"""Gazebo のシーンをランダム化する（物体色・置き場所の色・机の色味・照明・ダミーの箱）. 検出器の学習データ生成と方策評価で共用（ADR 0008）.
 
 Gazebo（Ignition Fortress）のサービスを ign コマンドで呼ぶ。1 回 0.3 秒程度かかるので、変更はまとめて並列に送る。
 ダミーの箱は実行中に大きさを変えられないため、大きさ違いを最初に作って使い回す（位置と色だけ変える）。
@@ -12,13 +12,14 @@ import random
 import re
 import subprocess
 from dataclasses import replace
-from typing import List, Mapping, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple
 
 from pai_task_env.domain_randomization import SceneParams, SceneSampler
 
 BASE_Z = 1.015           # world → crane_plus_base（task.yaml の base_origin と一致）
 OFFSCREEN = (2.0, 2.0)   # 使わない箱の置き場所（カメラ視野外, world）
 DEFAULT_OBJECT_RGB = (0.9, 0.1, 0.1)     # worlds/pick_place.sdf の target_cube
+DEFAULT_PLACE_RGB = (0.1, 0.6, 0.9)      # worlds/pick_place.sdf の place_zone
 DEFAULT_LIGHT = (0.8, (-0.5, 0.1, -0.9))  # Fuel の Sun モデルの diffuse と direction
 
 
@@ -43,18 +44,23 @@ def color(rgb) -> str:
 
 class SceneRandomizer:
     def __init__(self, cfg: Mapping, world: str = 'default', object_model: str = 'target_cube',
-                 table_model: str = 'Table', table_visual: str = 'visual1', light_name: str = 'sun'):
-        """cfg: domain_randomization.yaml の randomize 以下（object, distractors, table_tint, light）."""
-        self.world, self.object_model = world, object_model
+                 table_model: str = 'Table', table_visual: str = 'visual1', light_name: str = 'sun',
+                 place_model: str = 'place_zone'):
+        """cfg: domain_randomization.yaml の randomize 以下（object, distractors, table_tint, light, 任意で place）."""
+        self.world, self.object_model, self.place_model = world, object_model, place_model
         self.table_model, self.table_visual, self.light = table_model, table_visual, light_name
         d = cfg['distractors']
         self.pool_sizes: List[float] = list(d['pool_sizes'])
-        self.sampler = SceneSampler({
+        sampler_cfg = {
             'object': cfg['object'],
             'distractors': {'count': d['count'], 'size': [min(self.pool_sizes), max(self.pool_sizes)],
-                            'min_dist': d['min_dist'], 'x': d['x'], 'y': d['y']},
+                            'min_dist': d['min_dist'], 'min_dist_place': d.get('min_dist_place', d['min_dist']),
+                            'x': d['x'], 'y': d['y']},
             'table_tint': cfg['table_tint'], 'light': cfg['light'],
-        })
+        }
+        if cfg.get('place'):
+            sampler_cfg['place'] = cfg['place']
+        self.sampler = SceneSampler(sampler_cfg)
         self.ids = None
 
     def setup(self):
@@ -72,11 +78,16 @@ class SceneRandomizer:
             name = re.search(r'name: "([^"]+)"', blk).group(1)
             ids[name] = dict(re.findall(r'visual \{\s*name: "([^"]+)"\s*id: (\d+)', blk))
         self.ids = {'object': ids[self.object_model]['visual'], 'table': ids[self.table_model][self.table_visual],
+                    'place': ids.get(self.place_model, {}).get('visual'),
                     'boxes': [ids[f'dr_box_{k}']['v'] for k in range(len(self.pool_sizes))]}
 
-    def sample(self, rng: random.Random, object_xy: Sequence[float]) -> Tuple[SceneParams, List[int]]:
-        """シーンを決め、ダミーに使い回しの箱を割り当てる（大きさは割り当てた箱のものに置き換える）."""
-        scene = self.sampler.sample(rng, object_xy)
+    def sample(self, rng: random.Random, object_xy: Sequence[float],
+               place_xy: Optional[Sequence[float]] = None) -> Tuple[SceneParams, List[int]]:
+        """シーンを決め、ダミーに使い回しの箱を割り当てる（大きさは割り当てた箱のものに置き換える）.
+
+        place_xy を渡すとダミーの箱を置き場所にも重ねない。
+        """
+        scene = self.sampler.sample(rng, object_xy, place_xy)
         free = list(range(len(self.pool_sizes)))
         rng.shuffle(free)
         pairs = [(free[i], replace(d, size=self.pool_sizes[free[i]])) for i, d in enumerate(scene.distractors)]
@@ -112,6 +123,8 @@ class SceneRandomizer:
         calls = [self.visual_call(self.ids['object'], scene.object_rgb),
                  self.visual_call(self.ids['table'], scene.table_tint, ambient=(0.0, 0.0, 0.0)),  # 天板は環境光なし（元の設定）
                  self.light_call(scene.light_intensity, scene.light_direction)]
+        if scene.place_rgb is not None and self.ids.get('place'):
+            calls.append(self.visual_call(self.ids['place'], scene.place_rgb))
         used = dict(zip(box_ids, scene.distractors))
         for k in range(len(self.pool_sizes)):
             if k in used:
@@ -126,6 +139,8 @@ class SceneRandomizer:
         calls = [self.visual_call(self.ids['object'], DEFAULT_OBJECT_RGB),
                  self.visual_call(self.ids['table'], (1.0, 1.0, 1.0), ambient=(0.0, 0.0, 0.0)),
                  self.light_call(*DEFAULT_LIGHT)]
+        if self.ids.get('place'):
+            calls.append(self.visual_call(self.ids['place'], DEFAULT_PLACE_RGB))
         if remove_boxes:
             calls += [(f'/world/{self.world}/remove', 'ignition.msgs.Entity', f'name: "dr_box_{k}", type: MODEL')
                       for k in range(len(self.pool_sizes))]

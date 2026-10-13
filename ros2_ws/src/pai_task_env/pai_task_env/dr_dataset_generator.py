@@ -7,6 +7,8 @@ ros2 run pai_task_env dr_dataset_generator --ros-args --params-file config/domai
 速度のため、ダミーの箱は大きさ違いを最初に作って使い回し（位置と色だけ変える。実行中に大きさは変えられない）、
 シーン変更のサービス呼び出しは並列に行う。腕の姿勢は IK で関節角を求め、物体を隠さないものだけ動かす。
 終了時に物体・机・照明を元に戻し、ダミーの箱を消す。
+place.enabled のとき（実験12）は置き場所も 2 クラス目（place）として枠を付け、色もランダムにし、腕で隠さない。
+タスク環境を randomize_place:=true で起動しておけば、置き場所の位置も毎回変わる。
 """
 from __future__ import annotations
 
@@ -52,24 +54,31 @@ class DrDatasetGenerator(Node):
         self.table_visual = p('table_visual', 'visual1').value
         self.light = p('light_name', 'sun').value
         self.obj_size = p('object_size', 0.04).value
+        # 置き場所（2 クラス目）。厚さ 1mm の円板として枠を投影する
+        self.place = {k: p(f'place.{k}', d).value for k, d in
+                      [('enabled', False), ('model', 'place_zone'), ('radius', 0.035), ('height', 0.001)]}
         self.settle = p('settle_time', 1.0).value
         self.arm = {k: p(f'arm.{k}', d).value for k, d in
                     [('x', [0.03, 0.2]), ('y', [-0.16, 0.16]), ('z', [0.06, 0.18]), ('pitch', 1.134),
                      ('clearance', 0.05), ('home_ratio', 0.3), ('speed', 0.08)]}
         rnd = 'randomize.'
+        place_cfg = ({'saturation': p(rnd + 'place.saturation', [0.4, 1.0]).value,
+                      'value': p(rnd + 'place.value', [0.45, 1.0]).value} if self.place['enabled'] else None)
         self.randomizer = SceneRandomizer({
+            'place': place_cfg,
             'object': {'saturation': p(rnd + 'object.saturation', [0.4, 1.0]).value,
                        'value': p(rnd + 'object.value', [0.45, 1.0]).value},
             'distractors': {'count': p(rnd + 'distractors.count', [0, 3]).value,
                             'pool_sizes': p(rnd + 'distractors.pool_sizes', [0.02, 0.03, 0.04, 0.05]).value,
                             'min_dist': p(rnd + 'distractors.min_dist', 0.07).value,
+                            'min_dist_place': p(rnd + 'distractors.min_dist_place', 0.09).value,
                             'x': p(rnd + 'distractors.x', [0.0, 0.24]).value,
                             'y': p(rnd + 'distractors.y', [-0.16, 0.16]).value},
             'table_tint': p(rnd + 'table_tint', [0.5, 1.0]).value,
             'light': {'intensity': p(rnd + 'light.intensity', [0.5, 1.1]).value,
                       'max_tilt': p(rnd + 'light.max_tilt', 0.7).value},
         }, world=self.world, object_model=self.object_model, table_model=self.table_model,
-            table_visual=self.table_visual, light_name=self.light)
+            table_visual=self.table_visual, light_name=self.light, place_model=self.place['model'])
         self.kin = load_kinematics(os.path.join(
             get_package_share_directory('crane_plus_kinematics'), 'config', 'kinematics.yaml'))
         self.home = list(p('arm.home_ee', [0.10, 0.0, 0.08]).value)
@@ -77,6 +86,7 @@ class DrDatasetGenerator(Node):
         self.latest = {}
         self.create_subscription(Image, '/task/camera/image', lambda m: self.latest.__setitem__('image', m), 2)
         self.create_subscription(PoseStamped, '/task/object_pose', lambda m: self.latest.__setitem__('obj', m), 10)
+        self.create_subscription(PoseStamped, '/task/place_pose', lambda m: self.latest.__setitem__('place', m), 10)
         self.create_subscription(JointState, '/joint_states', lambda m: self.latest.__setitem__('joints', m), 10)
         self.create_subscription(String, '/task/status',
                                  lambda m: self.latest.__setitem__('status', json.loads(m.data)), 10)
@@ -109,30 +119,36 @@ class DrDatasetGenerator(Node):
             self.spin_for(0.05)
         self.ee = tuple(target)
 
-    def arm_clear(self, q, obj_xy) -> bool:
-        """腕（根元・肘・手首・手先を結ぶ線）が物体から clearance 以上離れているか."""
+    def arm_clear(self, q, obj_xy, place_xy=None) -> bool:
+        """腕（根元・肘・手首・手先を結ぶ線）が物体（と置き場所）から clearance 以上離れているか.
+
+        置き場所は物体より半径が大きいので、半径の差だけ余分に離す。
+        """
         ee = self.kin.forward(q)
         pts = [(0.0, 0.0), self.kin.elbow_position(q)[:2], self.kin.wrist_position(q)[:2], (ee.x, ee.y)]
-        return polyline_clear_of(pts, obj_xy, self.arm['clearance'])
+        if not polyline_clear_of(pts, obj_xy, self.arm['clearance']):
+            return False
+        extra = self.place['radius'] - self.obj_size / 2
+        return place_xy is None or polyline_clear_of(pts, place_xy, self.arm['clearance'] + extra)
 
-    def clear_pose(self, target, obj_xy) -> bool:
+    def clear_pose(self, target, obj_xy, place_xy=None) -> bool:
         """IK で関節角を求めて事前に判定する（実際に動かす前の絞り込み）."""
         q = self.kin.inverse(EndEffectorPose(*target, pitch=self.arm['pitch']))
-        return q is not None and self.arm_clear(q, obj_xy)
+        return q is not None and self.arm_clear(q, obj_xy, place_xy)
 
-    def actual_clear(self, obj_xy) -> bool:
+    def actual_clear(self, obj_xy, place_xy=None) -> bool:
         """実際の関節角で判定する（テレオペが pitch を緩めた場合などに備えて撮影直前に確認）."""
         pos = dict(zip(self.latest['joints'].name, self.latest['joints'].position))
-        return self.arm_clear([pos[n] for n in ARM_JOINT_NAMES], obj_xy)
+        return self.arm_clear([pos[n] for n in ARM_JOINT_NAMES], obj_xy, place_xy)
 
-    def place_arm(self, obj_xy) -> bool:
-        if self.rng.random() < self.arm['home_ratio'] and self.clear_pose(tuple(self.home), obj_xy):
+    def place_arm(self, obj_xy, place_xy=None) -> bool:
+        if self.rng.random() < self.arm['home_ratio'] and self.clear_pose(tuple(self.home), obj_xy, place_xy):
             self.move_ee(tuple(self.home))
             return True
         for _ in range(30):
             target = (self.rng.uniform(*self.arm['x']), self.rng.uniform(*self.arm['y']),
                       self.rng.uniform(*self.arm['z']))
-            if self.clear_pose(target, obj_xy):
+            if self.clear_pose(target, obj_xy, place_xy):
                 self.move_ee(target)
                 return True
         return False
@@ -151,7 +167,10 @@ class DrDatasetGenerator(Node):
     def run(self):
         img_dir = self.out / 'images'
         img_dir.mkdir(parents=True, exist_ok=True)
-        coco = {'images': [], 'annotations': [], 'categories': [{'id': 0, 'name': 'target'}]}
+        categories = [{'id': 0, 'name': 'target'}]
+        if self.place['enabled']:
+            categories.append({'id': 1, 'name': 'place'})
+        coco = {'images': [], 'annotations': [], 'categories': categories}
         meta = open(self.out / 'meta.jsonl', 'w')
         i, t0 = 0, time.monotonic()
         while i < self.n:
@@ -161,24 +180,33 @@ class DrDatasetGenerator(Node):
                 self.spin_for(0.05)
             self.spin_for(0.3)
             o = self.latest['obj'].pose.position
-            if not self.place_arm((o.x, o.y)):
+            place_xy = None
+            if self.place['enabled']:
+                pl = self.latest['place'].pose.position
+                place_xy = (pl.x, pl.y)
+            if not self.place_arm((o.x, o.y), place_xy):
                 continue
-            scene, box_ids = self.randomizer.sample(self.rng, (o.x, o.y))
+            scene, box_ids = self.randomizer.sample(self.rng, (o.x, o.y), place_xy)
             self.randomizer.apply(scene, box_ids)
             self.spin_for(self.settle)
-            if not self.actual_clear((o.x, o.y)):
+            if not self.actual_clear((o.x, o.y), place_xy):
                 continue
             img = self.fresh_image(self.now())
-            bbox = cylinder_bbox(self.cam, (o.x, o.y, o.z), self.obj_size / 2, self.obj_size, self.size)
-            if bbox[2] - bbox[0] < 4 or bbox[3] - bbox[1] < 4:
+            boxes = [(0, cylinder_bbox(self.cam, (o.x, o.y, o.z), self.obj_size / 2, self.obj_size, self.size))]
+            if place_xy is not None:
+                ph = self.place['height']
+                boxes.append((1, cylinder_bbox(self.cam, (*place_xy, ph / 2), self.place['radius'], ph, self.size)))
+            if any(b[2] - b[0] < 4 or b[3] - b[1] < 4 for _, b in boxes):
                 continue
             name = f'{i:05d}.png'
             cv2.imwrite(str(img_dir / name), self.bridge.imgmsg_to_cv2(img, desired_encoding='bgr8'))
             coco['images'].append({'id': i, 'file_name': name, 'width': self.size[0], 'height': self.size[1]})
-            x0, y0, x1, y1 = bbox
-            coco['annotations'].append({'id': i, 'image_id': i, 'category_id': 0, 'iscrowd': 0,
-                                        'bbox': [x0, y0, x1 - x0, y1 - y0], 'area': (x1 - x0) * (y1 - y0)})
-            meta.write(json.dumps({'image_id': i, 'object': [o.x, o.y, o.z], 'scene': asdict(scene)}) + '\n')
+            for cat, (x0, y0, x1, y1) in boxes:
+                coco['annotations'].append({'id': len(coco['annotations']), 'image_id': i, 'category_id': cat,
+                                            'iscrowd': 0, 'bbox': [x0, y0, x1 - x0, y1 - y0],
+                                            'area': (x1 - x0) * (y1 - y0)})
+            meta.write(json.dumps({'image_id': i, 'object': [o.x, o.y, o.z], 'place': place_xy,
+                                   'scene': asdict(scene)}) + '\n')
             meta.flush()
             i += 1
             if i % 50 == 0:

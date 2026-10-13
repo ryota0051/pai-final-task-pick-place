@@ -89,3 +89,30 @@ def test_naive_backprojection_of_bbox_center_is_biased_off_axis():
     u0, v0, u1, v1 = cylinder_bbox(CAM, (xy[0], xy[1], 0.02), 0.02, 0.04, SIZE)
     naive = CAM.pixel_to_plane((u0 + u1) / 2, (v0 + v1) / 2, 0.02)
     assert math.dist(naive[:2], xy) > 0.001
+
+
+# ---- 置き場所（置き場所もランダムに変え、検出器で見る。実験12） ----
+CFG_PLACE = {**CFG, 'place': {'saturation': [0.4, 1.0], 'value': [0.45, 1.0]},
+             'distractors': {**CFG['distractors'], 'min_dist_place': 0.09}}
+
+
+def test_scene_sampler_keeps_distractors_off_the_place():
+    obj, place = (0.12, 0.03), (0.08, -0.1)
+    for seed in range(50):
+        s = SceneSampler(CFG_PLACE).sample(random.Random(seed), obj, place_xy=place)
+        for d in s.distractors:
+            assert math.dist(d.xy, place) >= 0.09
+            assert math.dist(d.xy, obj) >= 0.06
+
+
+def test_scene_sampler_randomizes_place_color_only_when_configured():
+    s = SceneSampler(CFG_PLACE).sample(random.Random(0), (0.12, 0.03), place_xy=(0.08, -0.1))
+    assert s.place_rgb is not None and all(0.0 <= c <= 1.0 for c in s.place_rgb)
+    assert SceneSampler(CFG).sample(random.Random(0), (0.12, 0.03)).place_rgb is None
+
+
+def test_disc_bbox_for_place_is_centered_below_camera():
+    # 置き場所（厚さ 1mm の円板）の枠: カメラ直下なら中心の投影と枠の中心がほぼ一致する
+    u0, v0, u1, v1 = cylinder_bbox(CAM, (0.12, 0.0, 0.0005), 0.035, 0.001, SIZE)
+    uc, vc = CAM.project((0.12, 0.0, 0.0005))
+    assert abs((u0 + u1) / 2 - uc) < 0.5 and abs((v0 + v1) / 2 - vc) < 0.5

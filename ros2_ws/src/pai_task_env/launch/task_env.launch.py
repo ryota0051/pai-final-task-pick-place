@@ -11,7 +11,7 @@ from crane_plus_description.robot_description_loader import RobotDescriptionLoad
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node, SetParameter
 
 
@@ -27,6 +27,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_config', default_value=os.path.join(share, 'config', 'camera.yaml')),
         # 赤色検出ノードを起動するか（学習した検出器 pai_training の detect_node を使うときは false）
         DeclareLaunchArgument('red_detector', default_value='true'),
+        # 置き場所もエピソードごとにランダムに変えるか（true なら task.yaml の place.randomize に関係なく有効）
+        DeclareLaunchArgument('randomize_place', default_value='false'),
     ]
 
     # PATH を追加で通さないと STL が読み込まれない（元 launch と同じ）
@@ -78,7 +80,8 @@ def generate_launch_description():
 
     task_manager = Node(
         package='pai_task_env', executable='task_manager_node', output='screen',
-        parameters=[LaunchConfiguration('task_config')],
+        parameters=[LaunchConfiguration('task_config'),
+                    {'randomize_place': PythonExpression(["'", LaunchConfiguration('randomize_place'), "' == 'true'"])}],
     )
     detector = Node(
         package='pai_task_env', executable='object_detector_node', output='screen',

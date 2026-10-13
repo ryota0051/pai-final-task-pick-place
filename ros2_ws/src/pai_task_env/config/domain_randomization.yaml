@@ -12,6 +12,12 @@ dr_dataset_generator:
     table_visual: visual1           # 天板の visual 名
     light_name: sun
     object_size: 0.04               # 円柱の直径・高さ [m]
+    # 置き場所を 2 クラス目（place）として枠を付ける（実験12。-p place.enabled:=true、タスク環境は randomize_place:=true）
+    place:
+      enabled: false
+      model: place_zone
+      radius: 0.035                 # world SDF の place_zone と一致
+      height: 0.001
     settle_time: 1.0                # 腕・シーンを変えてから撮影までの待ち [s]
     # 腕の姿勢: 物体を隠さない（関節を結んだ線が物体から arm_clearance 以上離れる）範囲でランダム
     arm:
@@ -25,10 +31,12 @@ dr_dataset_generator:
       speed: 0.08                    # テレオペの手先速度の上限 [m/s]（teleop.yaml の max_linear_speed）
     randomize:
       object: {saturation: [0.4, 1.0], value: [0.45, 1.0]}
+      place: {saturation: [0.4, 1.0], value: [0.45, 1.0]}   # 置き場所の色（place.enabled のときだけ使う）
       distractors:                  # 箱は大きさ違いを最初に作って使い回す（実行中に大きさは変えられない）
         count: [0, 3]
         pool_sizes: [0.02, 0.025, 0.03, 0.035, 0.04, 0.05]
         min_dist: 0.07
+        min_dist_place: 0.09        # 置き場所の中心からの距離（置き場所に箱を重ねない）
         x: [0.0, 0.24]
         y: [-0.16, 0.16]
       table_tint: [0.5, 1.0]

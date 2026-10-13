@@ -95,3 +95,19 @@ def test_random_start_offset_zero_does_not_consume_rng():
     assert random_start_offset(rng, (0.0, 0.0, 0.0)) == (0.0, 0.0, 0.0)
     # ばらつきなしの設定では既存のデモ生成と乱数列が変わらない（seed の再現性を保つ）
     assert rng.random() == random.Random(1).random()
+
+
+def test_grasp_settle_waits_open_at_bottom_before_closing(params):
+    """下降後、グリッパを開いたまま grasp_settle 秒待ってから閉じる（腕の追従遅れで下降中に閉じると物体を押すため）."""
+    from dataclasses import replace
+    p = replace(params, grasp_settle=0.6)
+    plan = PickPlacePlan.create(start=(0.10, 0.0, 0.08), obj_xy=(0.15, 0.05), place_xy=(0.10, -0.12), params=p)
+    phases = [w.phase for w in plan.waypoints]
+    assert phases[:5] == ['start', 'approach', 'descend', 'settle', 'grasp']
+    settle = plan.waypoints[3]
+    assert settle.gripper == 0.0 and settle.duration == pytest.approx(0.6)
+    assert (settle.x, settle.y, settle.z) == (0.15, 0.05, 0.02)
+
+
+def test_grasp_settle_zero_keeps_original_plan(plan):
+    assert 'settle' not in [w.phase for w in plan.waypoints]

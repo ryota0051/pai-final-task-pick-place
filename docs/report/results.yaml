@@ -47,3 +47,21 @@ human_demos:
     - {label: "B: スクリプト 235\n＋人手 21", successes: 24, trials: 30, note: "実験10"}
     - {label: "C: 人手 21 のみ", successes: 0, trials: 30, note: "実験10"}
     - {label: "C': 人手 21 のみ\n＋物体−手先", successes: 1, trials: 30, note: "実験11"}
+
+# 図10: 置き場所も毎回変える課題（実験12, 配置固定 30 試行, 真値）
+place_random:
+  title: "置き場所の条件ごとの成功率（配置固定 30 試行, 真値）"
+  legend_loc: center
+  conditions: ["置き場所固定\n（元の課題）", "置き場所も毎回変える\n（新しい課題）"]
+  series:
+    - {label: "元のモデル", successes: [30, 1], trials: 30}
+    - {label: "新しいモデル", successes: [28, 29], trials: 30}
+
+# 図11: 学習した検出器で動かすときの、掴んでいる間の物体位置の扱い（実験12, 置き場所ランダム, 配置固定 30 試行）
+place_detector:
+  title: "物体位置の推定方法ごとの成功率（置き場所ランダム, 30 試行）"
+  legend_loc: lower left
+  conditions: ["真値", "学習した検出器", "検出器\n＋見た目ランダム化"]
+  series:
+    - {label: "更新し続ける", successes: [29, 26, 24], trials: 30}
+    - {label: "掴んでいる間は固定", successes: [29, 28, 28], trials: 30}

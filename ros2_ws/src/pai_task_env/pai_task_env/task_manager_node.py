@@ -1,4 +1,4 @@
-"""物体位置のランダム化・物体位置の publish・成功判定を行うタスク管理ノード."""
+"""物体（と置き場所）の位置のランダム化・位置の publish・成功判定を行うタスク管理ノード."""
 from __future__ import annotations
 
 import json
@@ -11,14 +11,14 @@ from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Point, PoseStamped
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Bool, Empty, String
+from std_msgs.msg import Bool, Empty, Float64MultiArray, String
 from std_srvs.srv import Trigger
 from nav_msgs.msg import Odometry
 
 from crane_plus_kinematics import ARM_JOINT_NAMES, load_kinematics
 from pai_task_env.frames import BaseFrame
 from pai_task_env.grasp_assist import GraspAssist
-from pai_task_env.sampler import ObjectSampler, SamplingError
+from pai_task_env.sampler import ObjectSampler, PlaceSampler, SamplingError, sample_scene
 from pai_task_env.success_checker import SuccessTracker
 
 
@@ -47,9 +47,20 @@ class TaskManagerNode(Node):
             max_attempts=p('sampler.max_attempts', 1000).value,
         )
         self.place_radius = p('place.radius', 0.03).value
+        self.place_sampler = None
+        # launch 引数 randomize_place はパラメータファイル（ノード名指定）より優先度が低く place.randomize を
+        # 上書きできないため、別名のパラメータで受ける
+        if p('place.randomize', False).value or p('randomize_place', False).value:
+            self.place_sampler = PlaceSampler(
+                x=tuple(p('place.sampler.x', [0.04, 0.16]).value),
+                y=tuple(p('place.sampler.y', [-0.14, 0.14]).value),
+                r=tuple(p('place.sampler.r', [0.09, 0.165]).value),
+                max_attempts=self.sampler.max_attempts,
+            )
+        self.place_xy = self.sampler.place_xy
         self.rest_z = self.object_size / 2.0
         self.tracker = SuccessTracker(
-            place_xy=self.sampler.place_xy, place_radius=self.place_radius, rest_z=self.rest_z,
+            place_xy=self.place_xy, place_radius=self.place_radius, rest_z=self.rest_z,
             z_tolerance=p('success.z_tolerance', 0.01).value,
             lift_height=p('success.lift_height', 0.02).value,
             hold_time=p('success.hold_time', 0.5).value,
@@ -86,10 +97,13 @@ class TaskManagerNode(Node):
         self.create_service(Trigger, '/task/reset', self.on_reset)
         # 評価用: 物体を指定位置（crane_plus_base 基準の x, y）に置いてリセット
         self.create_subscription(Point, '/task/reset_to', self.on_reset_to, 10)
+        # 評価用: 物体と置き場所の両方を指定位置に置いてリセット [物体 x, y, 置き場所 x, y]
+        self.create_subscription(Float64MultiArray, '/task/reset_to_scene', self.on_reset_to_scene, 10)
         self.create_timer(1.0 / status_rate, self.publish_status)
         if randomize_on_start:
             self._startup_timer = self.create_timer(3.0, self._startup_reset)
-        self.get_logger().info(f'task_manager_node started (mode={self.mode})')
+        self.get_logger().info(f'task_manager_node started (mode={self.mode}, '
+                               f'randomize_place={self.place_sampler is not None})')
 
     # ---- Gazebo 操作 ----
     def _set_pose(self, model: str, world_xyz) -> bool:
@@ -116,15 +130,22 @@ class TaskManagerNode(Node):
             self.detach_pub.publish(Empty())
             self.get_logger().info('grasp assist: detach')
 
-    def reset_task(self, xy=None):
+    def reset_task(self, xy=None, place_xy=None):
+        """物体（と置き場所）を置き直す. 指定がなければサンプルする（置き場所は固定設定なら固定位置）."""
         if self.grasp_assist is not None:
             self.grasp_assist.force_detach()
             self.detach_pub.publish(Empty())
-        x, y = xy if xy is not None else self.sampler.sample(self.rng)
+        if xy is None:
+            (x, y), place = sample_scene(self.sampler, self.place_sampler, self.rng)
+            place_xy = place_xy or place
+        else:
+            x, y = xy
+        self.place_xy = tuple(place_xy) if place_xy is not None else self.sampler.place_xy
         obj_ok = self._set_pose(self.object_model, self.frame.base_to_world(
             (x, y, self.rest_z + self.spawn_margin)))
-        px, py = self.sampler.place_xy
+        px, py = self.place_xy
         place_ok = self._set_pose(self.place_model, self.frame.base_to_world((px, py, 0.0005)))
+        self.tracker.set_place(self.place_xy)
         self.tracker.reset()
         self.episode += 1
         return obj_ok and place_ok, (x, y)
@@ -142,12 +163,20 @@ class TaskManagerNode(Node):
             res.success, res.message = False, str(e)
             return res
         res.success = ok
-        res.message = f'object=({x:.3f}, {y:.3f})'
+        res.message = f'object=({x:.3f}, {y:.3f}) place=({self.place_xy[0]:.3f}, {self.place_xy[1]:.3f})'
         return res
 
     def on_reset_to(self, msg: Point):
         ok, (x, y) = self.reset_task((msg.x, msg.y))
         self.get_logger().info(f'reset_to ({x:.3f}, {y:.3f}) ok={ok}')
+
+    def on_reset_to_scene(self, msg: Float64MultiArray):
+        if len(msg.data) != 4:
+            self.get_logger().error(f'reset_to_scene needs [object x, y, place x, y]: {list(msg.data)}')
+            return
+        ox, oy, px, py = msg.data
+        ok, _ = self.reset_task((ox, oy), (px, py))
+        self.get_logger().info(f'reset_to_scene object=({ox:.3f}, {oy:.3f}) place=({px:.3f}, {py:.3f}) ok={ok}')
 
     def on_object_odom(self, msg: Odometry):
         """OdometryPublisher の world 姿勢を crane_plus_base 基準に変換して publish."""
@@ -175,7 +204,7 @@ class TaskManagerNode(Node):
         place = PoseStamped()
         place.header.stamp = now.to_msg()
         place.header.frame_id = 'crane_plus_base'
-        place.pose.position.x, place.pose.position.y = self.sampler.place_xy
+        place.pose.position.x, place.pose.position.y = self.place_xy
         place.pose.orientation.w = 1.0
         self.place_pub.publish(place)
         if self.object_xyz is not None:
@@ -186,6 +215,7 @@ class TaskManagerNode(Node):
             'mode': self.mode,
             'episode': self.episode,
             'object': [round(v, 4) for v in self.object_xyz] if self.object_xyz else None,
+            'place': [round(v, 4) for v in self.place_xy],
             'grasped': bool(self.grasp_assist and self.grasp_assist.attached),
         })))
 

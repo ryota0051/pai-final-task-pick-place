@@ -6,7 +6,7 @@ import math
 import random
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 
 @dataclass(frozen=True)
@@ -21,13 +21,20 @@ class TrialResult:
     start_dx: float = 0.0
     start_dy: float = 0.0
     start_dz: float = 0.0
+    # 置き場所（置き場所をランダム化した評価のみ。固定なら空）
+    place_x: Optional[float] = None
+    place_y: Optional[float] = None
 
 
-def parse_positions(flat: Sequence[float]) -> List[Tuple[float, float]]:
-    """ROS パラメータの平坦なリスト [x0, y0, x1, y1, ...] を (x, y) の組にする."""
-    if len(flat) % 2:
-        raise ValueError(f'positions must have an even number of values: {len(flat)}')
-    return [(float(flat[i]), float(flat[i + 1])) for i in range(0, len(flat), 2)]
+def parse_positions(flat: Sequence[float], width: int = 2) -> List[Tuple[float, ...]]:
+    """ROS パラメータの平坦なリストを width 個ずつの組にする.
+
+    width=2: [x0, y0, x1, y1, ...] → 物体位置 (x, y)
+    width=4: [ox0, oy0, px0, py0, ...] → (物体 x, y, 置き場所 x, y)（置き場所もランダム化する評価）
+    """
+    if len(flat) % width:
+        raise ValueError(f'positions must have a multiple of {width} values: {len(flat)}')
+    return [tuple(float(v) for v in flat[i:i + width]) for i in range(0, len(flat), width)]
 
 
 def sample_start_offsets(n: int, max_xyz: Sequence[float], seed: int) -> List[Tuple[float, float, float]]:

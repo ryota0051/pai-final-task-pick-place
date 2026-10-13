@@ -17,10 +17,14 @@ policy_evaluator:
       enabled: false
       ee: [0.02, -0.15, 0.15, 1.134]   # 退避姿勢 x, y, z, pitch（物体のサンプル範囲 y >= -0.06 を覆わない側）
       move_time: 2.0
+      lift_time: 1.0                   # 退避の前に今の位置から真上へ上げる時間 [s]（置いた物体に当てない）。0 で従来どおり斜めに移動
       timeout: 5.0
     # 物体位置の固定リスト: 0 以上の seed を指定すると task.yaml と同じサンプリング条件で
     # 試行数ぶんの位置を再現可能に生成し、条件間（真値 / カメラなど）で同じ配置を比較できる。-1 で毎回ランダム
     positions_seed: -1
+    # 置き場所もランダム化する評価（実験12。タスク環境は randomize_place:=true で起動）。
+    # 位置リストは (物体 x, y, 置き場所 x, y) になり、positions の直接指定も 4 個ずつ
+    randomize_place: false
     task_config: ""                    # 空なら pai_task_env/config/task.yaml
     # 開始姿勢の摂動（開始姿勢のずれ・動作中の開始への頑健性評価。2026-10-11 実験8）
     start:
@@ -35,3 +39,4 @@ policy_evaluator:
       enabled: false
       config: ""                         # 空なら pai_task_env/config/domain_randomization.yaml の randomize
       seed: 0
+      place: false                       # true: 置き場所の色も変え、ダミーの箱を置き場所に重ねない（実験12）
