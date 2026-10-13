@@ -49,6 +49,8 @@ class PolicyEvaluator(Node):
         self.observe = p('observe.enabled', False).value
         self.observe_ee = list(p('observe.ee', [0.02, -0.15, 0.15, 1.134]).value)
         self.observe_move_time = p('observe.move_time', 2.0).value
+        # 退避の前に、今の位置から真上へ上げる（置いた物体を手でなぎ倒さないため。成否には影響しないが動画の見栄えが悪い）
+        self.observe_lift_time = p('observe.lift_time', 1.0).value
         self.observe_timeout = p('observe.timeout', 5.0).value
         # 物体位置の固定リスト（条件間で同じ配置を比較するため）。-1 なら毎回ランダム
         seed = p('positions_seed', -1).value
@@ -97,6 +99,7 @@ class PolicyEvaluator(Node):
         self.status = {}
         self.detector = {}
         self.obj = None
+        self.ee = None
         self.create_subscription(String, '/task/status',
                                  lambda m: self.status.update(json.loads(m.data)), 10)
         self.create_subscription(String, '/task/detector_status',
@@ -107,6 +110,8 @@ class PolicyEvaluator(Node):
         self.create_subscription(
             JointState, '/joint_states',
             lambda m: self.settle.update(time.monotonic(), list(m.position)), 10)
+        self.create_subscription(PoseStamped, '/teleop/ee_state',
+                                 lambda m: setattr(self, 'ee', m.pose.position), 10)
         self.create_subscription(PoseStamped, '/task/object_pose',
                                  lambda m: setattr(self, 'obj', m.pose.position), 10)
         self.triggers = {n: self.create_client(Trigger, n) for n in
@@ -217,6 +222,9 @@ class PolicyEvaluator(Node):
         self.set_bool('/policy/enable', False)
         self.set_bool('/teleop/enable', True)
         if self.observe:
+            if self.ee is not None and self.observe_lift_time > 0:
+                x, y, z, pitch = self.observe_ee
+                self.move_ee(self.ee.x, self.ee.y, max(z, self.ee.z), pitch, duration=self.observe_lift_time)
             self.move_ee(*self.observe_ee, duration=self.observe_move_time)
             self.reset_and_randomize(i)
             self.spin_for(0.5)
