@@ -19,7 +19,9 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 | sub | `/teleop/ee_velocity` | geometry_msgs/Twist | 手先速度 (linear xyz [m/s], angular.y = pitch 速度)。`velocity_timeout` 途絶で停止 |
 | sub | `/teleop/gripper` | std_msgs/Float64 | 0=開 〜 1=閉 |
 | sub | `/joint_states` | sensor_msgs/JointState | 再有効化時の姿勢同期用 |
-| pub | `/crane_plus_arm_controller/joint_trajectory` | JointTrajectory | 20Hz, time_from_start 0.1s（演習と同一 I/F） |
+| sub | `/teleop/ee_disturbance` | geometry_msgs/Vector3 | 手先目標への外乱 [m]（DART のデモ収録用, ADR 0010）。実行する指令にだけ足す。`disturbance_timeout` 途絶・ホームで 0 |
+| pub | `/crane_plus_arm_controller/joint_trajectory` | JointTrajectory | 20Hz, time_from_start 0.1s（演習と同一 I/F）。外乱があれば外乱入り |
+| pub | `/teleop/expert_arm_command` | JointTrajectory | 外乱なしの指令（DART のデモの行動ラベル）。外乱がなければ上と同じ値 |
 | pub | `/crane_plus_gripper_controller/joint_trajectory` | JointTrajectory | 同上 |
 | pub | `/teleop/ee_state` | PoseStamped | 現在の手先目標（crane_plus_base 基準）。収録対象 |
 | pub | `/teleop/status` | std_msgs/String(JSON) | enabled, ik_ok, pitch_relaxed, joints, target, gripper |
@@ -28,6 +30,7 @@ ros2 launch pai_web_teleop web_teleop.launch.py
 
 **IK 失敗時の挙動**: 作業空間クリップ → 要求 pitch で IK → 解けなければ pitch を `pitch_search_step` 刻みで要求値に近い順に探索（位置優先）→ それでも解なしなら直前の姿勢を維持し `ik_ok=false`。
 要求 pitch は別途保持するため、届く位置に戻ると要求 pitch に復帰する。
+外乱入りの指令は `EETeleopState.joints_with_offset`（目標を変えずに、ずらした位置を同じ規則で解く。解けなければ外乱なしの関節角）で求める。
 
 ### recorder_node（設定: `config/recorder.yaml`）
 | I/F | 名前 | 内容 |

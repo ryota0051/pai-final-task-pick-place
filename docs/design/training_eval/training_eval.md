@@ -25,6 +25,10 @@ pixi run --frozen infer --config configs/pick/infer_objpos.yaml
 
 `start_enabled: false` のため、ブラウザ UI の「方策 ON」（テレオペを無効化して方策を有効化）か評価スクリプトから開始する。
 
+トピックは「既定 → 変換設定の `topics`（観測のみ）→ 推論設定の `topics`」の順に上書きする（`inference_utils.resolve_topics`）。
+変換設定の指令トピック（`arm_command` / `gripper_command`）は行動ラベルの出どころなので引き継がない
+（DART のデモでは外乱なしの指令 `/teleop/expert_arm_command` を指すため、引き継ぐと腕が動かない。実験13）。
+
 ## 評価（`ros2 run pai_task_env policy_evaluator`）
 ```bash
 ros2 run pai_task_env policy_evaluator --ros-args \

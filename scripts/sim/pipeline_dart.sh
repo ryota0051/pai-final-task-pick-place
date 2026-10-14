@@ -10,11 +10,14 @@ set -u
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 SIM=~/final_task/scripts/sim
 DART_ARGS=${DART_ARGS:--p dart.max_xy:=0.01}
+# 起動は Gazebo の通信不調で失敗することがあるので 3 回まで試す
+start() { for _ in 1 2 3; do $SIM/start_stack.sh | tail -1 | tee /dev/stderr | grep -q '^\[OK\]' && return 0; done
+          log "[NG] 環境を起動できない"; exit 1; }
 
 if [ -z "${SKIP_COLLECT:-}" ]; then
   TASK_ENV_ARGS="randomize_place:=true" \
   WEB_TELEOP_ARGS="recorder_config:=$HOME/final_task/ros2_ws/install/pai_web_teleop/share/pai_web_teleop/config/recorder_dart.yaml" \
-    $SIM/start_stack.sh | tail -1
+    start
   DEMO_ARGS="$DART_ARGS" bash $SIM/collect_placerand.sh 200 200 1400 1401 > /tmp/collect_dart.log 2>&1
   log "収録完了: $(grep 'done:' /tmp/collect_dart.log | sed 's/.*done: //' | tr '\n' ' ')"
 fi
@@ -29,7 +32,7 @@ if [ -z "${SKIP_TRAIN:-}" ]; then
   log "学習完了: $(tail -1 /tmp/train_dart.log)"
 fi
 
-TASK_ENV_ARGS="randomize_place:=true red_detector:=false" $SIM/start_stack.sh | tail -1
+TASK_ENV_ARGS="randomize_place:=true red_detector:=false" start
 (cd ~/pai_training && nohup pixi run --frozen detect-node --config configs/detection/detect_rtdetr_v2.yaml \
   > /tmp/detect_v2.log 2>&1 &)
 sleep 30

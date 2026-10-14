@@ -24,6 +24,7 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 |---|---|---|
 | `joint_order` | j1, j2, **j4, j3**, hand | 観測・行動の関節順。**名前で並べ替える** |
 | `topics.object_pose` | なし | 物体位置トピック（PoseStamped） |
+| `topics.arm_command` | `/crane_plus_arm_controller/joint_trajectory` | 行動ラベルにする腕の指令。外乱入りのデモ（DART, 実験13）では外乱なしの指令 `/teleop/expert_arm_command` を指定する（推論ノードはこの値を出力先に使わない） |
 | `observation.state` / `observation.environment_state` | `[joints]` / `[joints]` | `joints`・`object_xyz` の連結 |
 | `pad_to_longest` | true | 短いエピソードを最終フレームで延長（演習と同じ） |
 | `bag_dir` | 文字列 | 収録ディレクトリ。**リストで複数指定すると順に連結**して 1 つのデータセットにする（`episode_discovery.find_episode_dirs`、`_` で始まるディレクトリは除外） |
