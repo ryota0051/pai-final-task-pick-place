@@ -65,3 +65,12 @@ place_detector:
   series:
     - {label: "更新し続ける", successes: [29, 26, 24], trials: 30}
     - {label: "掴んでいる間は固定", successes: [29, 28, 28], trials: 30}
+
+# 図12: 外乱入りのデモ（DART, 実験13）。物体と置き場所の組を固定した 60 か所（seed 0 と 1 の 30 か所ずつ）, 真値
+dart:
+  title: "外乱入りのデモの効果（配置固定 60 試行, 真値）"
+  legend_loc: lower left
+  conditions: ["置き場所固定\n（元の課題）", "置き場所も毎回変える\n（新しい課題）"]
+  series:
+    - {label: "外乱なしのデモ（最終モデル）", successes: [52, 58], trials: 60}
+    - {label: "外乱入りのデモ（DART）", successes: [58, 53], trials: 60}
