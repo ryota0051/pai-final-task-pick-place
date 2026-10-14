@@ -111,3 +111,91 @@ def test_grasp_settle_waits_open_at_bottom_before_closing(params):
 
 def test_grasp_settle_zero_keeps_original_plan(plan):
     assert 'settle' not in [w.phase for w in plan.waypoints]
+
+
+# ---- 外乱（DART: 実行する指令にだけ外乱を足し、ラベルは外乱なしの指令にする） ----
+from pai_task_env.scripted_policy import Disturbance, DisturbanceParams  # noqa: E402
+
+
+@pytest.fixture
+def dparams():
+    return DisturbanceParams(max_xy=0.008, max_z=0.0, period=0.5, phases=('approach', 'descend'),
+                             fade_time=0.4, end_margin=0.2)
+
+
+def _window(plan, dp):
+    start = plan.start_time_of(dp.phases[0])
+    end = plan.start_time_of(dp.phases[-1]) + plan.duration_of(dp.phases[-1]) - dp.end_margin
+    return start, end
+
+
+def test_disturbance_disabled_by_default(plan):
+    d = Disturbance(plan, DisturbanceParams(), random.Random(0))
+    assert not d.enabled
+    for t in [0.0, 1.0, 2.0, plan.total_duration]:
+        assert d.offset(t) == (0.0, 0.0, 0.0)
+
+
+def test_disturbance_disabled_does_not_consume_rng(plan):
+    rng = random.Random(1)
+    Disturbance(plan, DisturbanceParams(), rng)
+    # 外乱なしの設定では既存のデモ生成と乱数列が変わらない（seed の再現性を保つ）
+    assert rng.random() == random.Random(1).random()
+
+
+def test_disturbance_zero_outside_window(plan, dparams):
+    d = Disturbance(plan, dparams, random.Random(0))
+    start, end = _window(plan, dparams)
+    assert d.offset(start - 0.01) == (0.0, 0.0, 0.0)
+    assert d.offset(start) == pytest.approx((0.0, 0.0, 0.0))
+    # 把持（閉じる）前には外乱が消えている
+    for t in [end, end + 0.05, plan.start_time_of('grasp'), plan.total_duration]:
+        assert d.offset(t) == pytest.approx((0.0, 0.0, 0.0), abs=1e-9)
+
+
+def test_disturbance_bounded_and_nonzero_inside(plan, dparams):
+    d = Disturbance(plan, dparams, random.Random(0))
+    start, end = _window(plan, dparams)
+    mags = []
+    n = 200
+    for i in range(n + 1):
+        dx, dy, dz = d.offset(start + (end - start) * i / n)
+        assert math.hypot(dx, dy) <= dparams.max_xy + 1e-9
+        assert dz == 0.0
+        mags.append(math.hypot(dx, dy))
+    assert max(mags) > dparams.max_xy * 0.3
+
+
+def test_disturbance_is_continuous(plan, dparams):
+    d = Disturbance(plan, dparams, random.Random(3))
+    start, end = _window(plan, dparams)
+    prev = d.offset(start)
+    t = start
+    while t < end + 0.1:
+        t += 0.01
+        cur = d.offset(t)
+        # 20Hz の指令で急に跳ばない（10ms で 1mm 未満）
+        assert math.dist(prev, cur) < 0.001
+        prev = cur
+
+
+def test_disturbance_reproducible(plan, dparams):
+    a = Disturbance(plan, dparams, random.Random(7))
+    b = Disturbance(plan, dparams, random.Random(7))
+    ts = [0.3 * i for i in range(20)]
+    assert [a.offset(t) for t in ts] == [b.offset(t) for t in ts]
+
+
+def test_disturbance_z_bounded(plan, dparams):
+    from dataclasses import replace
+    d = Disturbance(plan, replace(dparams, max_z=0.005), random.Random(0))
+    start, end = _window(plan, dparams)
+    zs = [d.offset(start + (end - start) * i / 100)[2] for i in range(101)]
+    assert all(abs(z) <= 0.005 + 1e-9 for z in zs)
+    assert max(abs(z) for z in zs) > 0.0
+
+
+def test_disturbance_rejects_unknown_phase(plan, dparams):
+    from dataclasses import replace
+    with pytest.raises(ValueError):
+        Disturbance(plan, replace(dparams, phases=('approach', 'nope')), random.Random(0))

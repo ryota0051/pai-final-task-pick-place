@@ -92,3 +92,32 @@ def test_gripper_to_angle():
     assert gripper_to_angle(1.0, open_angle=-0.5236, close_angle=0.1745) == pytest.approx(0.1745)
     assert gripper_to_angle(2.0, open_angle=-0.5, close_angle=0.5) == pytest.approx(0.5)
     assert gripper_to_angle(0.5, open_angle=-0.5, close_angle=0.5) == pytest.approx(0.0)
+
+
+# ---- 外乱（DART）: 目標からずらした位置の関節角を、状態を変えずに求める ----
+def test_joints_with_offset_moves_ee_without_changing_state(state):
+    assert state.set_target(0.15, 0.03, 0.05, 1.134)
+    before_joints, before_target = list(state.joints), state.target
+    q = state.joints_with_offset(0.005, -0.004, 0.002)
+    fk = state.kin.forward(q)
+    assert (fk.x, fk.y, fk.z) == pytest.approx((0.155, 0.026, 0.052), abs=1e-6)
+    assert fk.pitch == pytest.approx(1.134)
+    # 目標（＝ラベルにする外乱なしの指令）は変わらない
+    assert state.joints == before_joints
+    assert state.target == before_target
+
+
+def test_joints_with_zero_offset_is_current_joints(state):
+    state.set_target(0.15, 0.03, 0.05, 1.134)
+    assert state.joints_with_offset(0.0, 0.0, 0.0) == state.joints
+
+
+def test_joints_with_offset_is_clipped_to_workspace(state):
+    state.set_target(0.15, 0.0, 0.002, math.pi / 2)
+    fk = state.kin.forward(state.joints_with_offset(0.0, 0.0, -0.01))
+    assert fk.z == pytest.approx(0.0, abs=1e-6)
+
+
+def test_joints_with_unreachable_offset_falls_back_to_current(state):
+    state.set_target(0.15, 0.0, 0.05, math.pi / 2)
+    assert state.joints_with_offset(0.5, 0.0, 0.5) == state.joints
