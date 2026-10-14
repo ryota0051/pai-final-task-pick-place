@@ -17,14 +17,15 @@ import random
 import time
 
 import rclpy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Vector3
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from std_msgs.msg import Float64, Float64MultiArray, String
 from std_srvs.srv import Trigger
 
 from pai_task_env.evaluation import parse_positions
-from pai_task_env.scripted_policy import PickPlacePlan, PlanParams, Waypoint, random_start_offset
+from pai_task_env.scripted_policy import (Disturbance, DisturbanceParams, PickPlacePlan, PlanParams, Waypoint,
+                                          random_start_offset)
 
 
 class ScriptedDemo(Node):
@@ -56,6 +57,15 @@ class ScriptedDemo(Node):
         # 開始姿勢のばらつき: ホームから各軸 ±start_offset だけ手先をずらしてから収録を始める（実験8 の対策）
         self.start_offset = list(p('randomize.start_offset', [0.0, 0.0, 0.0]).value)
         self.start_move_time = p('randomize.start_move_time', 1.5).value
+        # DART: 実行する手先目標にだけ外乱を足す（ラベルはテレオペノードが出す外乱なしの指令。実験13）
+        self.disturbance_params = DisturbanceParams(
+            max_xy=p('dart.max_xy', 0.0).value,
+            max_z=p('dart.max_z', 0.0).value,
+            period=p('dart.period', 0.5).value,
+            phases=tuple(p('dart.phases', ['approach', 'descend']).value),
+            fade_time=p('dart.fade_time', 0.4).value,
+            end_margin=p('dart.end_margin', 0.2).value,
+        )
         self.verbose = p('verbose', False).value
         # 物体・置き場所の位置の指定 [物体 x, y, 置き場所 x, y, ...]。指定時は /task/reset の代わりに
         # /task/reset_to_scene で置き、エピソード数は位置の数になる
@@ -66,6 +76,7 @@ class ScriptedDemo(Node):
 
         self.target_pub = self.create_publisher(PoseStamped, '/teleop/ee_target', 10)
         self.gripper_pub = self.create_publisher(Float64, '/teleop/gripper', 10)
+        self.disturbance_pub = self.create_publisher(Vector3, '/teleop/ee_disturbance', 10)
         self.latest = {}
         for topic, key, typ in [('/task/object_pose', 'obj', PoseStamped),
                                 ('/task/place_pose', 'place', PoseStamped),
@@ -152,6 +163,7 @@ class ScriptedDemo(Node):
             obj_xy=(o.x + self.rng.uniform(-noise, noise), o.y + self.rng.uniform(-noise, noise)),
             place_xy=(pl.x + self.rng.uniform(-noise, noise), pl.y + self.rng.uniform(-noise, noise)),
             params=params)
+        disturbance = Disturbance(plan, self.disturbance_params, self.rng)
 
         if self.record and not self.call('/recorder/start'):
             return False
@@ -169,6 +181,9 @@ class ScriptedDemo(Node):
                     f'obj=({obj.x:.3f}, {obj.y:.3f}, {obj.z:.3f})')
                 phase = w.phase
             self.publish(w)
+            if disturbance.enabled:
+                dx, dy, dz = disturbance.offset(t)
+                self.disturbance_pub.publish(Vector3(x=dx, y=dy, z=dz))
             if t > plan.total_duration + self.post_time:
                 break
             self.spin_for(period)

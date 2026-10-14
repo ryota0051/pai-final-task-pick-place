@@ -6,7 +6,7 @@ import os
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import PoseStamped, Twist, Vector3
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64, String
@@ -45,6 +45,10 @@ class EETeleopNode(Node):
         self.enabled = p('start_enabled', True).value
         arm_topic = p('arm_topic', '/crane_plus_arm_controller/joint_trajectory').value
         gripper_topic = p('gripper_topic', '/crane_plus_gripper_controller/joint_trajectory').value
+        # DART のデモ収録用: 外乱 [m] を受け取ると実行する指令にだけ足し、外乱なしの指令を expert_arm_topic に出す（実験13）
+        disturbance_topic = p('disturbance_topic', '/teleop/ee_disturbance').value
+        expert_arm_topic = p('expert_arm_topic', '/teleop/expert_arm_command').value
+        self.disturbance_timeout = p('disturbance_timeout', 0.3).value
 
         kin = load_kinematics(kin_cfg)
         # ホーム姿勢もテレオペと同じ pitch 緩和付きで解く（設定値が厳密に解けなくても起動できる）
@@ -58,14 +62,19 @@ class EETeleopNode(Node):
         self.velocity = (0.0, 0.0, 0.0, 0.0)
         self.last_vel_time = None
         self.latest_joint_state = None
+        self.disturbance = (0.0, 0.0, 0.0)
+        self.last_disturbance_time = None
 
         self.arm_pub = self.create_publisher(JointTrajectory, arm_topic, 10)
         self.gripper_pub = self.create_publisher(JointTrajectory, gripper_topic, 10)
+        self.expert_pub = self.create_publisher(JointTrajectory, expert_arm_topic, 10) if expert_arm_topic else None
         self.ee_pub = self.create_publisher(PoseStamped, '/teleop/ee_state', 10)
         self.status_pub = self.create_publisher(String, '/teleop/status', 10)
         self.create_subscription(PoseStamped, '/teleop/ee_target', self.on_target, 10)
         self.create_subscription(Twist, '/teleop/ee_velocity', self.on_velocity, 10)
         self.create_subscription(Float64, '/teleop/gripper', self.on_gripper, 10)
+        if disturbance_topic:
+            self.create_subscription(Vector3, disturbance_topic, self.on_disturbance, 10)
         self.create_subscription(JointState, '/joint_states', self.on_joint_state, 10)
         self.create_service(Trigger, '/teleop/home', self.on_home)
         self.create_service(SetBool, '/teleop/enable', self.on_enable)
@@ -88,12 +97,17 @@ class EETeleopNode(Node):
     def on_gripper(self, msg: Float64):
         self.gripper = min(max(msg.data, 0.0), 1.0)
 
+    def on_disturbance(self, msg: Vector3):
+        self.disturbance = (msg.x, msg.y, msg.z)
+        self.last_disturbance_time = self.get_clock().now()
+
     def on_joint_state(self, msg: JointState):
         self.latest_joint_state = dict(zip(msg.name, msg.position))
 
     def on_home(self, _req, res):
         self.state.reset_home()
         self.gripper = 0.0
+        self.disturbance = (0.0, 0.0, 0.0)
         res.success = True
         res.message = 'home'
         return res
@@ -119,8 +133,15 @@ class EETeleopNode(Node):
             else:
                 self.state.apply_velocity(*self.velocity, dt=1.0 / self.rate)
 
+        if self.last_disturbance_time is not None and                 (now - self.last_disturbance_time).nanoseconds * 1e-9 > self.disturbance_timeout:
+            self.disturbance = (0.0, 0.0, 0.0)
+            self.last_disturbance_time = None
+
         if self.enabled:
-            self.arm_pub.publish(make_trajectory(ARM_JOINT_NAMES, self.state.joints, self.traj_time))
+            executed = self.state.joints_with_offset(*self.disturbance)
+            self.arm_pub.publish(make_trajectory(ARM_JOINT_NAMES, executed, self.traj_time))
+            if self.expert_pub is not None:
+                self.expert_pub.publish(make_trajectory(ARM_JOINT_NAMES, self.state.joints, self.traj_time))
             angle = gripper_to_angle(self.gripper, self.gripper_open, self.gripper_close)
             self.gripper_pub.publish(make_trajectory([self.gripper_joint], [angle], self.traj_time))
 
@@ -141,6 +162,7 @@ class EETeleopNode(Node):
             'joints': [round(v, 4) for v in self.state.joints],
             'target': [round(t.x, 4), round(t.y, 4), round(t.z, 4), round(t.pitch, 4)],
             'gripper': self.gripper,
+            'disturbance': [round(v, 4) for v in self.disturbance],
         })))
 
 

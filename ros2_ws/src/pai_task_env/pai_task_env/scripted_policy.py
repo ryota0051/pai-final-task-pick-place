@@ -112,6 +112,9 @@ class PickPlacePlan:
     def duration_of(self, phase: str) -> float:
         return self.waypoints[self._index(phase)].duration
 
+    def end_time_of(self, phase: str) -> float:
+        return self.start_time_of(phase) + self.duration_of(phase)
+
     def sample(self, t: float) -> Waypoint:
         """時刻 t の目標（位置は min-jerk 補間、グリッパは区間の目標値）."""
         if t >= self.total_duration:
@@ -126,3 +129,63 @@ class PickPlacePlan:
                                 prev.z + (w.z - prev.z) * s, prev.pitch + (w.pitch - prev.pitch) * s,
                                 w.gripper, w.duration)
         return self.waypoints[0]
+
+
+@dataclass(frozen=True)
+class DisturbanceParams:
+    """DART（Laskey et al., 2017）の外乱. 実行する手先目標にだけ足し、ラベル（収録する指令）は外乱なしにする.
+
+    計画どおりの軌道から外れた状態と、そこから戻す正解の指令の組をデモに含めるため（実験13）。
+    """
+    max_xy: float = 0.0         # 水平の外乱の最大（半径）[m]。max_xy, max_z とも 0 なら外乱なし
+    max_z: float = 0.0          # 鉛直の外乱の最大 [m]
+    period: float = 0.5         # 外乱の目標値を引き直す間隔 [s]（間は min-jerk で滑らかにつなぐ）
+    phases: Tuple[str, ...] = ('approach', 'descend')   # 外乱を入れる区間（最初のフェーズの開始〜最後のフェーズの終了）
+    fade_time: float = 0.4      # 区間の終わりに向けて外乱を 0 に戻す時間 [s]
+    end_margin: float = 0.2     # 最後のフェーズの終了のこの時間前までに外乱を 0 にする [s]（閉じる前に腕を追従させる）
+
+    @property
+    def enabled(self) -> bool:
+        return self.max_xy > 0 or self.max_z > 0
+
+
+class Disturbance:
+    """計画の時刻 t に対する手先目標の外乱 (dx, dy, dz) [m].
+
+    区間の始まりは 0 から、period ごとに引き直した目標値（水平は半径 max_xy の円内で一様）を min-jerk でつなぎ、
+    区間の終わり fade_time かけて 0 に戻す。区間外は 0。
+    """
+
+    def __init__(self, plan: PickPlacePlan, params: DisturbanceParams, rng: random.Random):
+        self.params = params
+        phases = [w.phase for w in plan.waypoints]
+        unknown = [ph for ph in params.phases if ph not in phases]
+        if unknown:
+            raise ValueError(f'unknown phase for disturbance: {unknown} (plan has {phases})')
+        self.start = plan.start_time_of(params.phases[0])
+        self.end = plan.end_time_of(params.phases[-1]) - params.end_margin
+        self.knots: List[Tuple[float, float, float]] = []
+        if not params.enabled or self.end <= self.start:
+            return
+        n = int(math.ceil((self.end - self.start) / params.period))
+        self.knots.append((0.0, 0.0, 0.0))
+        for _ in range(n):
+            r = params.max_xy * math.sqrt(rng.random())
+            a = rng.uniform(-math.pi, math.pi)
+            dz = rng.uniform(-params.max_z, params.max_z) if params.max_z > 0 else 0.0
+            self.knots.append((r * math.cos(a), r * math.sin(a), dz))
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.knots)
+
+    def offset(self, t: float) -> Tuple[float, float, float]:
+        if not self.knots or t < self.start or t >= self.end:
+            return (0.0, 0.0, 0.0)
+        u = (t - self.start) / self.params.period
+        i = min(int(u), len(self.knots) - 2)
+        s = _min_jerk(min(max(u - i, 0.0), 1.0))
+        a, b = self.knots[i], self.knots[i + 1]
+        fade = self.params.fade_time
+        gain = _min_jerk(min((self.end - t) / fade, 1.0)) if fade > 0 else 1.0
+        return tuple(gain * (a[k] + (b[k] - a[k]) * s) for k in range(3))

@@ -1,0 +1,19 @@
+recorder_node:
+  ros__parameters:
+    use_sim_time: true
+    output_root: ~/dataset/rosbags/pick_place_dart  # 置き場所ランダム＋外乱（DART）のスクリプトデモ（実験13）
+    episode_prefix: ep
+    storage_id: sqlite3            # pai_training の変換は *.db3 を探索する
+    stop_timeout: 10.0
+    discard_dirname: _discarded
+    topics:
+      - /joint_states
+      - /crane_plus_arm_controller/joint_trajectory   # 実行した指令（外乱入り）
+      - /crane_plus_gripper_controller/joint_trajectory
+      - /teleop/expert_arm_command                   # 外乱なしの指令（学習のラベル）
+      - /teleop/ee_disturbance                       # 足した外乱（確認用）
+      - /teleop/ee_state
+      - /task/object_pose
+      - /task/place_pose
+      - /tf
+      - /tf_static

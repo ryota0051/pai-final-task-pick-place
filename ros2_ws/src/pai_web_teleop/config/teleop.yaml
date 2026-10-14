@@ -7,6 +7,10 @@ ee_teleop_node:
     frame_id: crane_plus_base
     arm_topic: /crane_plus_arm_controller/joint_trajectory
     gripper_topic: /crane_plus_gripper_controller/joint_trajectory
+    # DART のデモ収録用（実験13）: 外乱 [m] を受け取ると実行する指令にだけ足し、外乱なしの指令を expert_arm_topic に出す
+    disturbance_topic: /teleop/ee_disturbance
+    expert_arm_topic: /teleop/expert_arm_command
+    disturbance_timeout: 0.3       # 外乱が途絶えたら 0 に戻す [s]
     gripper_joint_name: crane_plus_joint_hand
     gripper_open: -0.5236          # -30deg（演習と同じ）
     gripper_close: 0.30            # 4cm 物体を約 1cm 押し込む角度（爪間隔 0.04 で接触 = 約 0.19rad）

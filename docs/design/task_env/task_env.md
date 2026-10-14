@@ -86,11 +86,20 @@ x/y 範囲から一様サンプルし、水平半径範囲 `r`（真下向き把
 - 開始姿勢のばらつき（`randomize.start_offset`, 既定 0 で無効）: ホーム後・収録前に手先を各軸 ±offset の一様乱数だけずらして止め、そこから計画する。
   方策が静止したホーム姿勢からの開始に依存する問題（training_eval の実験8）への対策。ずらした分の移動は収録しない
 - テレオペと同じ `/teleop/ee_target`・`/teleop/gripper` を 20Hz で publish するので、収録されるトピックは人のテレオペと同一
+- 外乱（DART, `dart.*`, 既定 `max_xy: 0` で無効, ADR 0010・training_eval の実験13）: `scripted_policy.Disturbance` が計画の
+  `dart.phases`（既定 接近〜下降）の区間で手先目標の外乱を作り、`/teleop/ee_disturbance`（Vector3 [m]）に publish する。
+  ee_teleop_node は外乱を **実行する指令にだけ** 足し、外乱なしの指令を `/teleop/expert_arm_command` に出す（学習のラベル）
+  - 外乱: 区間の始まりは 0、`period` 秒ごとに半径 `max_xy` の円内（一様）で目標値を引き直して min-jerk でつなぐ。
+    区間の終わり（下降の終了の `end_margin` 秒前）に向けて `fade_time` 秒で 0 に戻す（閉じる前に腕を追従させる）
+  - 試験収録（max_xy 0.01, 6 本・6/6 成功）: 実行した指令とラベルの手先の水平差は最大 6〜9mm、閉じ始めで 0。
+    実際の腕は外乱に遅れて追従し、閉じ始めの手先とラベルの水平差は 0.7〜7.3mm（外乱から戻る動きが含まれる）
 
 ```bash
 ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=40 -p seed:=0
 # 開始姿勢をばらつかせたデモ（録画先を分けるため、スタックは recorder_startrand.yaml で起動しておく）
 ros2 run pai_task_env scripted_demo --ros-args --params-file src/pai_task_env/config/scripted_demo.yaml -p episodes:=125 -p seed:=1   -p "randomize.start_offset:=[0.03,0.03,0.02]"
+# 外乱入りのデモ（DART。スタックは randomize_place:=true と recorder_dart.yaml で起動しておく。収録から評価までは scripts/sim/pipeline_dart.sh）
+DEMO_ARGS="-p dart.max_xy:=0.01" bash ~/final_task/scripts/sim/collect_placerand.sh 200 200 1400 1401
 ```
 
 ## 動作確認（2026-10-10）
