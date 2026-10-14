@@ -72,5 +72,5 @@ dart:
   legend_loc: lower left
   conditions: ["置き場所固定\n（元の課題）", "置き場所も毎回変える\n（新しい課題）"]
   series:
-    - {label: "外乱なしのデモ（最終モデル）", successes: [52, 58], trials: 60}
+    - {label: "外乱なしのデモ", successes: [52, 58], trials: 60}
     - {label: "外乱入りのデモ（DART）", successes: [58, 53], trials: 60}
