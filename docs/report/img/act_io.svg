@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 244" font-family="Yu Gothic, YuGothic, Meiryo, Noto Sans CJK JP, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1L9 5L1 9z" fill="#2a6fdb"/>
+    </marker>
+    <style>
+      .box { fill: #f4f8fe; stroke: #2a6fdb; stroke-width: 1.5; }
+      .opt { stroke-dasharray: 5 3; }
+      .model { fill: #eef3fb; stroke: #1b4fa3; stroke-width: 1.2; stroke-dasharray: 4 3; }
+      .out { fill: #2a6fdb; stroke: #2a6fdb; stroke-width: 1.5; }
+      .t { font-size: 13px; font-weight: bold; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
+      .s { font-size: 11px; fill: #444; text-anchor: middle; dominant-baseline: central; }
+      .tw { font-size: 13px; font-weight: bold; fill: #fff; text-anchor: middle; dominant-baseline: central; }
+      .sw { font-size: 11px; fill: #fff; text-anchor: middle; dominant-baseline: central; }
+      .hd { font-size: 11px; fill: #1b4fa3; font-weight: bold; text-anchor: middle; }
+      .ln { stroke: #2a6fdb; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+
+  <text class="hd" x="75" y="14">入力（現在の値）</text>
+  <text class="hd" x="220" y="14">トークン化</text>
+  <text class="hd" x="360" y="14">ACT 本体</text>
+  <text class="hd" x="498" y="14">出力</text>
+  <text class="hd" x="643" y="14">推論時の後処理</text>
+
+  <rect class="box" x="1" y="26" width="148" height="44" rx="6"/>
+  <text class="t" x="75" y="41">関節角（5 次元）</text>
+  <text class="s" x="75" y="59">joint1〜4・gripper</text>
+
+  <rect class="box" x="1" y="78" width="148" height="44" rx="6"/>
+  <text class="t" x="75" y="93">物体位置 x, y, z</text>
+  <text class="s" x="75" y="111">真値 or 検出器で推定</text>
+
+  <rect class="box opt" x="1" y="130" width="148" height="44" rx="6"/>
+  <text class="t" x="75" y="145">置き場所 x, y</text>
+  <text class="s" x="75" y="163">4.10 のモデルのみ</text>
+
+  <rect class="box" x="1" y="182" width="148" height="44" rx="6"/>
+  <text class="t" x="75" y="197">潜在変数 z</text>
+  <text class="s" x="75" y="215">学習時: CVAE ／ 推論時: 0</text>
+
+  <path class="ln" d="M149 48H158M149 100H158M149 152H158M149 204H158M158 48V204"/>
+  <path class="ln" d="M158 126H168" marker-end="url(#ah)"/>
+
+  <rect class="box" x="170" y="86" width="100" height="80" rx="6"/>
+  <text class="t" x="220" y="106">正規化 ＋</text>
+  <text class="t" x="220" y="124">線形層</text>
+  <text class="s" x="220" y="146">512 次元トークン</text>
+
+  <path class="ln" d="M270 126H288" marker-end="url(#ah)"/>
+
+  <rect class="model" x="290" y="40" width="140" height="172" rx="8"/>
+  <rect class="box" x="300" y="54" width="120" height="56" rx="6"/>
+  <text class="t" x="360" y="72">エンコーダ 4 層</text>
+  <text class="s" x="360" y="93">自己注意・8 ヘッド</text>
+  <path class="ln" d="M360 110V140" marker-end="url(#ah)"/>
+  <rect class="box" x="300" y="142" width="120" height="56" rx="6"/>
+  <text class="t" x="360" y="160">デコーダ 1 層</text>
+  <text class="s" x="360" y="181">16 クエリで交差注意</text>
+
+  <path class="ln" d="M430 126H448" marker-end="url(#ah)"/>
+
+  <rect class="box" x="450" y="86" width="96" height="80" rx="6"/>
+  <text class="t" x="498" y="104">行動チャンク</text>
+  <text class="t" x="498" y="124">16 × 5</text>
+  <text class="s" x="498" y="146">0〜0.75 秒先</text>
+
+  <path class="ln" d="M546 126H564" marker-end="url(#ah)"/>
+
+  <rect class="box" x="566" y="58" width="153" height="56" rx="6"/>
+  <text class="t" x="642.5" y="76">temporal ensembling</text>
+  <text class="s" x="642.5" y="97">同じ時刻の予測を加重平均</text>
+  <path class="ln" d="M642.5 114V138" marker-end="url(#ah)"/>
+  <rect class="out" x="566" y="140" width="153" height="56" rx="6"/>
+  <text class="tw" x="642.5" y="158">目標関節角（5 次元）</text>
+  <text class="sw" x="642.5" y="179">20Hz で関節指令へ</text>
+  <text class="s" x="642.5" y="214">毎ステップ予測し直す</text>
+</svg>
