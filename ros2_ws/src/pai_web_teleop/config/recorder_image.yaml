@@ -1,0 +1,18 @@
+recorder_node:
+  ros__parameters:
+    use_sim_time: true
+    output_root: ~/dataset/rosbags/pick_place_image  # 置き場所ランダムのスクリプトデモ＋俯瞰カメラ画像（画像を入力する方策, A 案）
+    episode_prefix: ep
+    storage_id: sqlite3            # pai_training の変換は *.db3 を探索する
+    stop_timeout: 10.0
+    discard_dirname: _discarded
+    topics:
+      - /joint_states
+      - /crane_plus_arm_controller/joint_trajectory
+      - /crane_plus_gripper_controller/joint_trajectory
+      - /teleop/ee_state
+      - /task/camera/image           # 俯瞰カメラ（320x240, 10Hz。1 エピソードあたり数十 MB）
+      - /task/object_pose            # 方策の入力には使わない（分析用の真値）
+      - /task/place_pose
+      - /tf
+      - /tf_static

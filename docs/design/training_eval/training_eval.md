@@ -7,6 +7,8 @@ pixi run --frozen train --config configs/pick/train_objpos.yaml --device cpu --s
 ```
 - 追加設定: `wandb_mode`（既定 disabled）, `seed`, `episodes`, `weight_decay`, `act`（ACTConfig 追加引数）
 - 学習時間・ms/step・最終 loss を `<output_directory>/train_info.json` に保存（CPU/GPU 比較用）
+- 観測は `delta_timestamps` にある `observation.*` をすべて最新の 1 時刻に絞って ACT に渡す（状態・カメラ画像とも）
+- カメラ画像を使うモデルは、画像の backbone（ImageNet 学習済み ResNet18）だけ学習率を `act.optimizer_lr_backbone`（既定 1e-5）にする（`policy.get_optim_params()`。ACT 論文・LeRobot と同じ。ADR 0011）
 - `delta_timestamps.action` は 20fps に合わせ 0.0〜0.75s の 16 ステップ。演習設定は -0.1s 始まりで、`n_action_steps: 1` だと実行される行動が 0.1s 前のものになっていた
 
 ## 推論（`scripts/infer.py`）
@@ -17,6 +19,7 @@ pixi run --frozen infer --config configs/pick/infer_objpos.yaml
 | I/F | 名前 | 内容 |
 |---|---|---|
 | sub | `/joint_states`, `/task/object_pose` | 観測（`conversion_config` と同じ規則で組み立て = 学習時と一致） |
+| sub | 変換設定の `topics.<カメラ名>`（例 `/task/camera/image`） | カメラ画像を使うモデルのみ。最新の画像を (3, H, W) float [0, 1] にして渡す（rerun にも表示） |
 | pub | arm / gripper の joint_trajectory | 予測チャンクの先頭（または temporal ensembling） |
 | pub | `/policy/status` | enabled, ready, step, latency_ms, predicted, device（ブラウザ UI に表示） |
 | srv | `/policy/enable` (SetBool) | 有効化時に `policy.reset()` |
@@ -389,3 +392,18 @@ pixi run --frozen debug-policy --dataset-root ... --repo-id ... --policy-path ..
   置き場所ランダムでは失敗が増えた（58/60 → 53/60、p≈0.16）。持ち上げられなかった 6 件のうち 4 件は正面〜右前の奥寄り（x 0.14〜0.15, y −0.03〜0.02。x2 と同じ領域）、残りは左前 (0.089, 0.039) と右手前 (0.112, −0.045)。ほかに持ち上げた後に失敗した 1 件
 - 合計は同じ（110 vs 111/120, p=1.0）。外乱入りのデモでも「掴む精度に余裕がなく、失敗する場所が学習ごとに移る」状況は変わらなかった
 - 最終モデルは A' のまま（ユーザー判断）。合計の成功率が同じで、説明資料・動画を作り直す利点が小さいため
+
+### 実験14（2026-10-16〜）: カメラ画像を入力する方策（A 案, ADR 0011）
+物体位置・置き場所を数値で与えず、関節角と俯瞰カメラ画像（320×240）だけを ACT に入力する。
+
+- データ: A' と同じ条件・seed（置き場所ランダム、固定開始 200 ＋ 開始姿勢ばらつき 200、seed 1200 / 1201）を画像つきで収録し直す
+  （`recorder_image.yaml`、`~/dataset/rosbags/pick_place_image`）
+- 学習: A' と同じ 80k step・batch 32・chunk 16。設定 `configs/pick/*_image.yaml`、モデル `crane_plus_pick_image_act`
+- 評価: A' と同じ seed 0 / 1 の 30 配置で、置き場所ランダム・置き場所固定、seed 0 は見た目ランダム化も
+- 実行: `scripts/sim/pipeline_image.sh`（収録から評価まで。`N_FIXED` / `N_RAND` で本数、`SKIP_COLLECT` / `SKIP_TRAIN` で途中から）
+
+通し確認（2026-10-16, /tmp に 3 回収録して 2 本成功 → 変換 → 200 step 学習 → 2 試行評価）:
+- 収録: 1 本あたり約 30MB（8 秒で画像 76 枚）。400 本で 12GB 程度の見込み
+- 学習: RTX 4090 で 118 ms/step（画像なしの A' は 116 ms/step を同じ 20 step で計測。80k step なら 2.6 時間程度）
+- 推論: 1 回 24 ms（20Hz に収まる）。2 試行は 200 step・2 本の学習なので 0/2（動作確認のみ）
+- 不具合の修正: LeRobotDataset は動画の画像を 1 時刻だけ読むと時刻の次元を落として返すため、`train.py` で時刻の次元が残っているものだけ絞るようにした
