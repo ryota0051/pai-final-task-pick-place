@@ -20,6 +20,7 @@ BASE_Z = 1.015           # world → crane_plus_base（task.yaml の base_origin
 OFFSCREEN = (2.0, 2.0)   # 使わない箱の置き場所（カメラ視野外, world）
 DEFAULT_OBJECT_RGB = (0.9, 0.1, 0.1)     # worlds/pick_place.sdf の target_cube
 DEFAULT_PLACE_RGB = (0.1, 0.6, 0.9)      # worlds/pick_place.sdf の place_zone
+DEFAULT_PLACE_ALPHA = 0.6                # 同じく place_zone の不透明度（半透明）。restore で戻す
 DEFAULT_LIGHT = (0.8, (-0.5, 0.1, -0.9))  # Fuel の Sun モデルの diffuse と direction
 
 
@@ -37,9 +38,9 @@ def ign_parallel(calls) -> None:
         proc.wait()
 
 
-def color(rgb) -> str:
+def color(rgb, alpha: float = 1.0) -> str:
     r, g, b = rgb
-    return f'{{r: {r:.3f}, g: {g:.3f}, b: {b:.3f}, a: 1}}'
+    return f'{{r: {r:.3f}, g: {g:.3f}, b: {b:.3f}, a: {alpha:.3f}}}'
 
 
 class SceneRandomizer:
@@ -94,10 +95,10 @@ class SceneRandomizer:
         return replace(scene, distractors=tuple(d for _, d in pairs)), [k for k, _ in pairs]
 
     # ---- 呼び出しの組み立て ----
-    def visual_call(self, vid, rgb, ambient=None):
+    def visual_call(self, vid, rgb, ambient=None, alpha: float = 1.0):
         amb = rgb if ambient is None else ambient
         return (f'/world/{self.world}/visual_config', 'ignition.msgs.Visual',
-                f'id: {vid}, material: {{ambient: {color(amb)}, diffuse: {color(rgb)}}}')
+                f'id: {vid}, material: {{ambient: {color(amb, alpha)}, diffuse: {color(rgb, alpha)}}}')
 
     def light_call(self, intensity, direction):
         d = intensity
@@ -135,13 +136,20 @@ class SceneRandomizer:
                 calls.append(self.pose_call(f'dr_box_{k}', OFFSCREEN[0], OFFSCREEN[1] + k, BASE_Z))
         ign_parallel(calls)
 
-    def restore(self, remove_boxes: bool = True):
+    def restore_calls(self, remove_boxes: bool = True):
+        """元の見た目（worlds/pick_place.sdf）に戻す呼び出し. 置き場所は半透明（DEFAULT_PLACE_ALPHA）に戻す.
+
+        ランダム化の最中（apply）の置き場所は不透明のまま（これまでの評価・検出器の学習データと同じ見た目）。
+        """
         calls = [self.visual_call(self.ids['object'], DEFAULT_OBJECT_RGB),
                  self.visual_call(self.ids['table'], (1.0, 1.0, 1.0), ambient=(0.0, 0.0, 0.0)),
                  self.light_call(*DEFAULT_LIGHT)]
         if self.ids.get('place'):
-            calls.append(self.visual_call(self.ids['place'], DEFAULT_PLACE_RGB))
+            calls.append(self.visual_call(self.ids['place'], DEFAULT_PLACE_RGB, alpha=DEFAULT_PLACE_ALPHA))
         if remove_boxes:
             calls += [(f'/world/{self.world}/remove', 'ignition.msgs.Entity', f'name: "dr_box_{k}", type: MODEL')
                       for k in range(len(self.pool_sizes))]
-        ign_parallel(calls)
+        return calls
+
+    def restore(self, remove_boxes: bool = True):
+        ign_parallel(self.restore_calls(remove_boxes))

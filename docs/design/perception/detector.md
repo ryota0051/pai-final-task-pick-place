@@ -7,7 +7,7 @@
 | 段階 | 実装 | 内容 |
 |---|---|---|
 | 学習データ生成 | `pai_task_env/dr_dataset_generator`（設定 `config/domain_randomization.yaml`） | Gazebo でシーンをランダム化して俯瞰画像を保存。正解の枠は円柱を投影して自動で付ける（COCO 形式） |
-| シーンのランダム化 | `pai_task_env/scene_randomizer.py`（生成と方策評価で共用） | 物体色・机の色味・照明・ダミーの箱を Gazebo のサービスで変更 |
+| シーンのランダム化 | `pai_task_env/scene_randomizer.py`（生成と方策評価で共用） | 物体色・机の色味・照明・ダミーの箱を Gazebo のサービスで変更。`restore()` で元の見た目に戻す（置き場所は world の SDF と同じ不透明度 0.6。ランダム化の最中は不透明。2026-10-17 修正） |
 | 学習 | fork `scripts/detection/train_detector.py`（設定 `configs/detection/train_rtdetr.yaml`） | `PekingU/rtdetr_v2_r18vd`（Apache-2.0, COCO 事前学習）を 1 クラスで追加学習 |
 | 評価 | fork `scripts/detection/eval_detector.py`（`configs/detection/eval_rtdetr.yaml`） | 学習に使っていない画像で位置誤差を測り、赤色検出と比べる |
 | 推論ノード | fork `scripts/detection/detect_node.py`（`configs/detection/detect_rtdetr.yaml`） | 枠の中心から位置を逆算して publish。タスク環境は `red_detector:=false` で起動する |
