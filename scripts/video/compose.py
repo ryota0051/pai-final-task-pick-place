@@ -3,6 +3,7 @@
 python3 ~/final_task/scripts/video/compose.py
 素材: record_clips.py が録画した <media_dir>/<clip>.mp4 と .events.csv
 字幕・カードは Pillow で画像にして ffmpeg で重ねる（ナレーションなし）。
+比較の場面には、上部にモデル表（video.yaml の models）を重ね、その場面で使うモデル（timeline の models）の列を強調する。
 """
 import csv
 import os
@@ -17,6 +18,17 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[2]
 BG = (16, 22, 34)
 ACCENT = (42, 111, 219)
+STRIP_H = 78           # 上部のモデル表の高さ [px]
+STRIP_RIGHT = 170      # 右上の倍速表示の分だけ空ける幅 [px]
+
+
+def validate(cfg):
+    """timeline の models が video.yaml の models にあるかを確かめる."""
+    ids = {m['id'] for m in cfg.get('models', [])}
+    for item in cfg['timeline']:
+        for mid in item.get('models', []):
+            if mid not in ids:
+                raise ValueError(f'unknown model {mid!r} in timeline item {item}')
 
 
 class Composer:
@@ -76,13 +88,69 @@ class Composer:
             y += 62
         return self.save(img)
 
-    def image_frame(self, name):
+    def image_frame(self, name, top=30):
+        """画像を中央に置いた画面. top: 画像を置く範囲の上端（上部にモデル表を重ねるときは下げる）."""
         img = Image.new('RGB', (self.W, self.H), BG)
         src = Image.open(self.img_dir / name).convert('RGB')
-        box_w, box_h = self.W - 80, self.H - 170
+        box_w, box_h = self.W - 80, self.H - 140 - top
         scale = min(box_w / src.width, box_h / src.height)
         src = src.resize((int(src.width * scale), int(src.height * scale)), Image.LANCZOS)
-        img.paste(src, ((self.W - src.width) // 2, 30 + (box_h - src.height) // 2))
+        img.paste(src, ((self.W - src.width) // 2, top + (box_h - src.height) // 2))
+        return self.save(img)
+
+    def fit_font(self, draw, text, size, width, bold=True):
+        """幅に収まるまで文字を小さくしたフォント."""
+        while size > 9 and draw.textlength(text, font=self.font(size, bold)) > width:
+            size -= 1
+        return self.font(size, bold)
+
+    def strip_column_centers(self):
+        n = len(self.cfg['models'])
+        w = (self.W - STRIP_RIGHT - 16) / n
+        return [16 + w * (i + 0.5) for i in range(n)]
+
+    def model_strip_layer(self, active):
+        """上部のモデル表（記号・呼び名・データ）. active のモデルの列だけ青地・太字で強調した透過 PNG."""
+        img = Image.new('RGBA', (self.W, self.H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        models = self.cfg['models']
+        w = (self.W - STRIP_RIGHT - 16) / len(models)
+        d.rectangle([0, 0, self.W - STRIP_RIGHT + 4, STRIP_H + 4], fill=(0, 0, 0, 150))
+        for cx, m in zip(self.strip_column_centers(), models):
+            on = m['id'] in active
+            box = [cx - w / 2 + 3, 6, cx + w / 2 - 3, STRIP_H]
+            if on:
+                d.rounded_rectangle(box, radius=6, fill=ACCENT + (255,))
+            color = 'white' if on else (150, 160, 178)
+            d.text((cx, 10), m['id'], font=self.font(19 if on else 17, bold=on), fill=color, anchor='ma')
+            for y, key in ((34, 'name'), (54, 'data')):
+                d.text((cx, y), m[key], font=self.fit_font(d, m[key], 14, w - 10, bold=on), fill=color, anchor='ma')
+        return self.save(img)
+
+    def models_card(self):
+        """モデル一覧の画面（記号・呼び名・入力・学習データ）."""
+        img = Image.new('RGB', (self.W, self.H), BG)
+        d = ImageDraw.Draw(img)
+        d.text((self.W // 2, 60), self.cfg.get('models_title', 'モデル一覧'), font=self.font(40), fill='white', anchor='mm')
+        d.line([self.W // 2 - 200, 96, self.W // 2 + 200, 96], fill=ACCENT, width=4)
+        cols = [('記号', 'id', 110), ('呼び名', 'name', 300), ('方策の入力', 'input', 380), ('学習データ', 'data', 330)]
+        x0 = (self.W - sum(c[2] for c in cols)) // 2
+        rows = [{k: h for h, k, _ in cols}] + self.cfg['models']
+        row_h = min(64, (self.H - 220) // len(rows))
+        for r, m in enumerate(rows):
+            y = 130 + r * row_h
+            d.rectangle([x0, y, x0 + sum(c[2] for c in cols), y + row_h], fill=(30, 40, 60) if r == 0 else BG,
+                        outline=(70, 82, 104))
+            x = x0
+            for _, key, cw in cols:
+                text = m[key]
+                f = self.fit_font(d, text, 26, cw - 20, bold=(r == 0 or key == 'id'))
+                d.text((x + cw / 2, y + row_h / 2), text, font=f, fill='white', anchor='mm')
+                x += cw
+        note = self.cfg.get('models_note')
+        if note:
+            d.text((self.W // 2, 130 + len(rows) * row_h + 40), note, font=self.font(22, bold=False),
+                   fill=(200, 210, 225), anchor='mm')
         return self.save(img)
 
     def label_layer(self, labels):
@@ -175,19 +243,30 @@ class Composer:
         return out
 
     # ---- タイムライン ----
+    def with_models(self, overlay, item):
+        """item に models があれば、上部のモデル表を overlay に重ねる."""
+        if not item.get('models'):
+            return overlay
+        strip = self.model_strip_layer(item['models'])
+        return self.combine(overlay, strip) if overlay else strip
+
     def build(self):
+        validate(self.cfg)
         segs = []
         for item in self.cfg['timeline']:
             t = item['type']
-            if t == 'card':
+            if t == 'models':
+                segs.append(self.still(self.models_card(), item['duration']))
+            elif t == 'card':
                 segs.append(self.still(self.card(item['title'], item.get('subtitle'), item.get('lines', [])),
                                        item['duration']))
             elif t == 'image':
-                segs.append(self.still(self.image_frame(item['image']), item['duration'],
-                                       self.caption_layer(item['caption'])))
+                top = STRIP_H + 20 if item.get('models') else 30
+                segs.append(self.still(self.image_frame(item['image'], top), item['duration'],
+                                       self.with_models(self.caption_layer(item['caption']), item)))
             elif t == 'clip':
                 speed = item.get('speed', 1)
-                overlay = self.caption_layer(item['caption'], speed)
+                overlay = self.with_models(self.caption_layer(item['caption'], speed), item)
                 if 'trials' in item:
                     windows = self.trial_windows(item['clip'], item['trials'])
                 else:
@@ -196,8 +275,8 @@ class Composer:
                     segs.append(self.cut(item['clip'], s, e, speed, item.get('max_seconds'), overlay))
             elif t == 'compare':
                 speed = item.get('speed', 1)
-                overlay = self.combine(self.caption_layer(item['caption'], speed),
-                                       self.label_layer([item['left_label'], item['right_label']]))
+                overlay = self.with_models(self.combine(self.caption_layer(item['caption'], speed),
+                                                        self.label_layer([item['left_label'], item['right_label']])), item)
                 k = item['trials'][0]
                 segs.append(self.compare(item['left'], item['right'],
                                          self.trial_windows(item['left'], [k], item.get('tail', 1.0))[0],

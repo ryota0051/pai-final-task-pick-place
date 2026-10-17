@@ -22,3 +22,6 @@ h2, h3 { break-after: avoid; }
 .flow .arrow { font-size: 14pt; color: #2a6fdb; }
 ul { margin: 3px 0 6px; padding-left: 20px; }
 ol { margin: 3px 0 6px; padding-left: 20px; }
+/* 3 章のモデル一覧: ページの途中で分けず、記号の列は折り返さない */
+.models { break-inside: avoid; }
+.models td:first-child, .models th:first-child { white-space: nowrap; }

@@ -31,8 +31,8 @@ def _rate_and_err(successes, trials):
     return np.array(rates), np.array([lo, hi])
 
 
-def _finish(ax, title, path):
-    ax.set_ylim(0, 115)
+def _finish(ax, title, path, ymax=115):
+    ax.set_ylim(0, ymax)
     ax.set_ylabel('成功率 [%]')
     ax.set_title(title, fontsize=11)
     ax.grid(axis='y', alpha=0.3)
@@ -56,19 +56,22 @@ def bars(cfg, path, color):
 
 
 def grouped(cfg, path):
-    conds = cfg['conditions']
-    fig, ax = plt.subplots(figsize=(6.4, 3.4))
+    """条件ごとに系列を並べた棒グラフ. trials は数（全条件共通）か条件ごとのリスト、color は系列ごとに指定可."""
+    conds, series = cfg['conditions'], cfg['series']
+    fig, ax = plt.subplots(figsize=tuple(cfg.get('figsize', (6.4, 3.4))))
     x = np.arange(len(conds))
-    w = 0.38
-    for k, s in enumerate(cfg['series']):
-        rates, err = _rate_and_err(s['successes'], [s['trials']] * len(conds))
-        xs = x + (k - 0.5) * w
-        ax.bar(xs, rates, w, label=s['label'], color=COLORS[k], yerr=err, capsize=3, ecolor='#555')
+    w = 0.76 / len(series)
+    for k, s in enumerate(series):
+        trials = s['trials'] if isinstance(s['trials'], list) else [s['trials']] * len(conds)
+        rates, err = _rate_and_err(s['successes'], trials)
+        xs = x + (k - (len(series) - 1) / 2) * w
+        ax.bar(xs, rates, w, label=s['label'], color=s.get('color', COLORS[k % len(COLORS)]),
+               yerr=err, capsize=3, ecolor='#555')
         for xi, r, h in zip(xs, rates, err[1]):
             ax.text(xi, r + h + 2, f'{r:.0f}', ha='center', fontsize=8)
     ax.set_xticks(x, conds, fontsize=8.5)
-    ax.legend(fontsize=8, loc=cfg.get('legend_loc', 'lower left'))
-    _finish(ax, cfg['title'], path)
+    ax.legend(fontsize=8, loc=cfg.get('legend_loc', 'lower left'), ncol=cfg.get('legend_ncol', 1))
+    _finish(ax, cfg['title'], path, cfg.get('ymax', 115))
 
 
 def main():
@@ -84,6 +87,7 @@ def main():
     grouped(cfg['place_random'], out / 'fig_place_random.png')
     grouped(cfg['place_detector'], out / 'fig_place_detector.png')
     grouped(cfg['dart'], out / 'fig_dart.png')
+    grouped(cfg['image_direct'], out / 'fig_image_direct.png')
 
 
 if __name__ == '__main__':

@@ -33,7 +33,7 @@
 
   <rect class="box opt" x="1" y="130" width="148" height="44" rx="6"/>
   <text class="t" x="75" y="145">置き場所 x, y</text>
-  <text class="s" x="75" y="163">4.10 のモデルのみ</text>
+  <text class="s" x="75" y="163">M3・M3' のみ</text>
 
   <rect class="box" x="1" y="182" width="148" height="44" rx="6"/>
   <text class="t" x="75" y="197">潜在変数 z</text>

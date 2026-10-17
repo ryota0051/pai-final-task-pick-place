@@ -16,8 +16,8 @@ start_robustness:
   title: "開始姿勢のずれに対する成功率（配置固定 30 試行）"
   conditions: ["ホームで静止", "±1cm", "±3cm", "±3cm から\n戻る途中で開始"]
   series:
-    - {label: "固定開始のデモ 117", successes: [30, 15, 9, 14], trials: 30}
-    - {label: "＋開始姿勢ばらつきデモ 118", successes: [30, 30, 30, 30], trials: 30}
+    - {label: "M1: 固定開始のデモ 117", successes: [30, 15, 9, 14], trials: 30}
+    - {label: "M2: ＋開始姿勢ばらつきデモ 118", successes: [30, 30, 30, 30], trials: 30}
 
 # 図4: 物体位置の観測劣化への頑健性（実験4, 20 試行）
 object_corruption:
@@ -54,17 +54,17 @@ place_random:
   legend_loc: center
   conditions: ["置き場所固定\n（元の課題）", "置き場所も毎回変える\n（新しい課題）"]
   series:
-    - {label: "元のモデル", successes: [30, 1], trials: 30}
-    - {label: "新しいモデル", successes: [28, 29], trials: 30}
+    - {label: "M2: 置き場所を観測しない", successes: [30, 1], trials: 30}
+    - {label: "M3: 置き場所を観測する", successes: [28, 29], trials: 30}
 
-# 図11: 学習した検出器で動かすときの、掴んでいる間の物体位置の扱い（実験12, 置き場所ランダム, 配置固定 30 試行）
+# 図12: 学習した検出器で動かすときの、保持中の物体位置の扱い（実験12, 置き場所ランダム, 配置固定 30 試行）
 place_detector:
   title: "物体位置の推定方法ごとの成功率（置き場所ランダム, 30 試行）"
   legend_loc: lower left
   conditions: ["真値", "学習した検出器", "検出器\n＋見た目ランダム化"]
   series:
-    - {label: "更新し続ける", successes: [29, 26, 24], trials: 30}
-    - {label: "掴んでいる間は固定", successes: [29, 28, 28], trials: 30}
+    - {label: "M3: 保持中も更新し続ける", successes: [29, 26, 24], trials: 30}
+    - {label: "M3': 保持中は据え置き", successes: [29, 28, 28], trials: 30}
 
 # 図12: 外乱入りのデモ（DART, 実験13）。物体と置き場所の組を固定した 60 か所（seed 0 と 1 の 30 か所ずつ）, 真値
 dart:
@@ -74,3 +74,20 @@ dart:
   series:
     - {label: "外乱なしのデモ", successes: [52, 58], trials: 60}
     - {label: "外乱入りのデモ（DART）", successes: [58, 53], trials: 60}
+
+# 図15: カメラ画像を方策に渡す方式の比較（実験14）。物体と置き場所の組を固定した 60 か所（seed 0・1）、見た目のランダム化は seed 0 の 30 か所
+# 検出器経由は M3'（保持中の物体位置を据え置き）を 2 クラスの検出器で動かした値。画像直接の seed 1 は置き場所の色の不具合を避けて評価し直した値
+image_direct:
+  title: "方式ごとの成功率（置き場所も毎回変えるモデル）"
+  figsize: [7.2, 3.6]
+  legend_loc: upper center
+  legend_ncol: 3
+  ymax: 128
+  conditions: ["置き場所を毎回変える
+（60 か所）", "置き場所固定
+（60 か所）", "見た目をランダム化
+（30 か所）"]
+  series:
+    - {label: "M3': 検出器で座標にしてから入力", successes: [57, 46, 28], trials: [60, 60, 30], color: "#9aa5b1"}
+    - {label: "M4: 画像を直接入力", successes: [58, 44, 7], trials: [60, 60, 30], color: "#9cc3f5"}
+    - {label: "M4': 画像を直接入力＋色の拡張", successes: [59, 56, 15], trials: [60, 60, 30], color: "#2a6fdb"}
