@@ -10,6 +10,8 @@
 | `configs/pick/conversion_{baseline,objpos}.yaml` | 把持・配置タスク用設定 |
 | `configs/pick/conversion_objpos_startrand.yaml` | 固定開始 117 ＋ 開始姿勢ばらつきデモの混合（training_eval の実験9） |
 | `configs/pick/features_{baseline,objpos}.py` | LeRobot features 定義 |
+| `src/pai_training/images.py` | sensor_msgs/Image の生データ → RGB 配列（rgb8 / bgr8 / rgba8 / bgra8 / mono8）。推論ノードと共有。`tests/test_images.py` |
+| `configs/pick/{conversion,train,infer}_image.yaml`, `features_image.py` | 関節角 + 俯瞰カメラ画像（A 案, ADR 0011）。整合性は `tests/test_image_configs.py` |
 
 ```bash
 cd ~/pai_training
@@ -29,6 +31,8 @@ pixi run --frozen test   # 変換・推論ユーティリティの単体テス�
 | `pad_to_longest` | true | 短いエピソードを最終フレームで延長（演習と同じ） |
 | `bag_dir` | 文字列 | 収録ディレクトリ。**リストで複数指定すると順に連結**して 1 つのデータセットにする（`episode_discovery.find_episode_dirs`、`_` で始まるディレクトリは除外） |
 | `observation.*` の `object_minus_ee` | - | 物体位置 − 手先位置（順運動学）。`kinematics: {package, config}` 節で crane_plus_kinematics を指定する（`fk_loader`。推論ノードも同じ設定で計算。training_eval の実験11） |
+| `observation.images` | `[]` | カメラ名のリスト。特徴量 `observation.images.<カメラ名>`（features では `dtype: video`, `shape: (H, W, 3)`）、画像トピックは `topics.<カメラ名>`（ADR 0011） |
+| `observation.environment_state: []` | - | `observation.environment_state` を作らない（画像だけで物体を見るモデル。features にも書かない） |
 | `pad_to_longest: false` | - | 末尾の延長をしない。長さの大きく違うデモ（人手デモ）を混ぜるときに使う（実験10。延長の有無で性能は変わらなかった） |
 
 把持・配置タスクでは `joint_order` を j1, j2, j3, j4, hand とし、
@@ -68,3 +72,10 @@ pixi run --frozen rerun --serve-web --web-viewer-port 9877 --port 9876 ~/dataset
 | 開始姿勢の標準偏差 | 固定開始 約 0.005rad、開始姿勢ばらつき 0.13〜0.22rad | ばらつきが意図どおり入っている |
 
 結論: 変換は意図どおりで、学習データに問題は見つからなかった。
+
+## カメラ画像（2026-10-16, ADR 0011）
+- 20fps の各フレームで **直前の画像** を使う（`conversion.build_episode_arrays` が `image_index.<カメラ名>` を返す）。俯瞰カメラは 10Hz なので 2 フレームずつ同じ画像になる
+- 時間窓（全トピックがそろう区間）には画像も含める
+- 画像は大きい（320×240×3 で 1 枚 230KB、400 本で数 GB）ため、`rosbag2lerobot.py` は 1 回目の読み出しでは画像の時刻だけを集め、
+  書き込み時にエピソードごとに画像を読み直す（`read_images`）
+- LeRobotDataset には動画（`use_videos=True`）として保存する。学習時は DataLoader が動画からデコードする

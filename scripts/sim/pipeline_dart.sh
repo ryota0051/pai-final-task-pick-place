@@ -11,7 +11,9 @@ log() { echo "[$(date +%H:%M:%S)] $*"; }
 SIM=~/final_task/scripts/sim
 DART_ARGS=${DART_ARGS:--p dart.max_xy:=0.01}
 # 起動は Gazebo の通信不調で失敗することがあるので 3 回まで試す
-start() { for _ in 1 2 3; do $SIM/start_stack.sh | tail -1 | tee /dev/stderr | grep -q '^\[OK\]' && return 0; done
+# （tee /dev/stderr は /dev/stderr を開き直してログファイルを空にするので使わない）
+start() { local out
+          for _ in 1 2 3; do out=$($SIM/start_stack.sh | tail -1); echo "$out"; [[ $out == "[OK]"* ]] && return 0; done
           log "[NG] 環境を起動できない"; exit 1; }
 
 if [ -z "${SKIP_COLLECT:-}" ]; then

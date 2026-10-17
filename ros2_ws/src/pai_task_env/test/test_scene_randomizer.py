@@ -40,3 +40,47 @@ def test_sample_passes_place_to_scene_sampler():
         scene, _ = SceneRandomizer(cfg).sample(random.Random(seed), (0.12, 0.0), place_xy=(0.06, -0.12))
         assert scene.place_rgb is not None
         assert all(math.dist(d.xy, (0.06, -0.12)) >= 0.09 for d in scene.distractors)
+
+
+# ---- 元の見た目に戻す（restore）: 置き場所の不透明度を world の SDF と同じにする ----
+def _sdf_place_rgba():
+    import re
+    from pathlib import Path
+    sdf = (Path(__file__).resolve().parents[1] / 'worlds' / 'pick_place.sdf').read_text(encoding='utf-8')
+    block = sdf[sdf.index('<model name="place_zone">'):]
+    return [float(v) for v in re.search(r'<diffuse>([^<]+)</diffuse>', block).group(1).split()]
+
+
+def _with_ids():
+    r = SceneRandomizer(CFG)
+    r.ids = {'object': '1', 'table': '2', 'place': '3', 'boxes': ['4', '5', '6', '7']}
+    return r
+
+
+def test_default_place_color_matches_world_sdf():
+    from pai_task_env.scene_randomizer import DEFAULT_PLACE_ALPHA, DEFAULT_PLACE_RGB
+    rgba = _sdf_place_rgba()
+    assert tuple(rgba[:3]) == DEFAULT_PLACE_RGB
+    assert rgba[3] == DEFAULT_PLACE_ALPHA < 1.0
+
+
+def test_restore_keeps_place_translucent():
+    calls = _with_ids().restore_calls(remove_boxes=False)
+    place = [req for _, _, req in calls if req.startswith('id: 3,')]
+    assert len(place) == 1
+    assert place[0].count('a: 0.600') == 2      # ambient と diffuse
+    assert 'a: 1' not in place[0]
+
+
+def test_restore_other_visuals_stay_opaque_and_boxes_removed():
+    calls = _with_ids().restore_calls(remove_boxes=True)
+    obj = [req for _, _, req in calls if req.startswith('id: 1,')][0]
+    assert 'a: 1.000' in obj
+    assert sum(s.endswith('/remove') for s, _, _ in calls) == 4
+
+
+def test_apply_place_color_stays_opaque_during_randomization():
+    # 見た目ランダム化の最中の置き場所は不透明のまま（これまでの評価・検出器の学習データと同じ見た目）
+    r = _with_ids()
+    s, t, req = r.visual_call('3', (0.2, 0.3, 0.4))
+    assert 'a: 1.000' in req
