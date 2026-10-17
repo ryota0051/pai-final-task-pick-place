@@ -90,4 +90,4 @@ image_direct:
   series:
     - {label: "M3': 検出器で座標にしてから入力", successes: [57, 46, 28], trials: [60, 60, 30], color: "#9aa5b1"}
     - {label: "M4: 画像を直接入力", successes: [58, 44, 7], trials: [60, 60, 30], color: "#9cc3f5"}
-    - {label: "M4': 画像を直接入力＋色の拡張", successes: [59, 56, 15], trials: [60, 60, 30], color: "#2a6fdb"}
+    - {label: "M4': 画像を直接入力＋明るさの拡張", successes: [59, 56, 15], trials: [60, 60, 30], color: "#2a6fdb"}
