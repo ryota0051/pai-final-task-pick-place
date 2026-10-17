@@ -69,7 +69,7 @@ clips:
     infer_config: configs/pick/infer_objpos_placerand_latch_learned.yaml
     positions: [0.1137, -0.0134, 0.1413, 0.0722, 0.106, 0.0967, 0.1441, -0.0717, 0.1569, -0.0267, 0.0444, -0.1339]
     args: ['-p', 'randomize_place:=true', '-p', 'observe.enabled:=true']
-  image_direct:             # 追加実験: 画像を方策に直接入力（関節角＋俯瞰カメラ画像, 色の拡張あり。物体・置き場所の座標は与えない）
+  image_direct:             # 追加実験: 画像を方策に直接入力（関節角＋俯瞰カメラ画像, 明るさの拡張あり。物体・置き場所の座標は与えない）
     # 環境は TASK_ENV_ARGS="randomize_place:=true" で起動（検出ノードは不要）。配置は place_random と同じ（実験12 の評価 seed 0 の試行 0, 6, 10）
     kind: eval
     infer_config: configs/pick/infer_image_color.yaml
@@ -88,7 +88,7 @@ models:
   - {id: "M3", name: "置き場所ランダム", input: "関節角＋物体位置＋置き場所", data: "置き場所ランダム 339 本"}
   - {id: "M3'", name: "保持中は位置を据え置き", input: "M3 と同じ（保持中は物体位置を据え置き）", data: "M3 と同じ 339 本"}
   - {id: "M4", name: "画像入力", input: "関節角＋俯瞰カメラ画像（座標なし）", data: "画像つき 346 本"}
-  - {id: "M4'", name: "画像入力・色の拡張", input: "M4 と同じ（学習時に色をランダムに変える）", data: "M4 と同じ 346 本"}
+  - {id: "M4'", name: "画像入力・明るさの拡張", input: "M4 と同じ（学習時に明るさ・彩度を変える）", data: "M4 と同じ 346 本"}
 
 # ---- タイムライン ----
 # card: 文字だけの画面 / image: 画像＋字幕 / clip: 素材の切り出し（trials: 何試行目か。方策 ON の 0.5 秒前から成功の 1 秒後まで）
